@@ -17,7 +17,7 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap');
     
     /* Enforce Typography */
-    h1, h2, h3, p, li, span, label, div {
+    h1, h2, h3, p, li, label {
         font-family: 'Inter', -apple-system, sans-serif !important;
     }
     
