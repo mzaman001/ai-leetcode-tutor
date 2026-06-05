@@ -51,18 +51,10 @@ st.markdown("""
     }
     
     /* Hide Streamlit Default UI Elements */
-    #MainMenu {
-        visibility: hidden !important;
-    }
-    header {
-        background-color: transparent !important;
-    }
-    [data-testid="stToolbar"] {
-        visibility: hidden !important;
-    }
-    footer {
-        visibility: hidden !important;
-    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="collapsedControl"] {visibility: visible;}
 </style>
 """, unsafe_allow_html=True)
 
