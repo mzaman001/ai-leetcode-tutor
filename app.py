@@ -15,13 +15,44 @@ st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide")
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-    /* Techy Grid Background (Blueprint Paper Aesthetic) */
+    
+    /* Global scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent; 
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #1e293b; 
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #334155; 
+    }
+
+    /* Text selection styling */
+    ::selection {
+        background: rgba(245, 158, 11, 0.3);
+        color: #f8fafc;
+    }
+
+    /* Minimal Dark Pro Background with Top Accent Bar */
     .stApp {
-        background-color: #020617 !important;
-        background-image: 
-            linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px) !important;
-        background-size: 40px 40px !important;
+        background-color: #0a0a0f !important;
+        background-image: radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.04) 0%, transparent 60%) !important;
+        background-size: auto !important;
+    }
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #f59e0b, #f97316);
+        z-index: 999;
     }
 
     /* Enforce Typography */
@@ -31,18 +62,18 @@ st.markdown("""
     
     /* Tech Editor Input (Text Area) */
     .stTextArea textarea {
-        background-color: rgba(15, 23, 42, 0.8) !important;
+        background-color: rgba(15, 23, 42, 0.6) !important;
         backdrop-filter: blur(10px);
         border: 1px solid #334155 !important;
-        color: #e0f2fe !important;
+        color: #fef3c7 !important;
         font-family: 'Fira Code', monospace !important;
         border-radius: 8px !important;
-        box-shadow: inset 0 4px 10px rgba(0,0,0,0.5) !important;
-        transition: all 0.3s ease !important;
+        transition: border-color 0.2s ease !important;
+        box-shadow: none !important;
     }
     .stTextArea textarea:focus {
-        border-color: #38bdf8 !important;
-        box-shadow: 0 0 15px rgba(56,189,248,0.2), inset 0 4px 10px rgba(0,0,0,0.5) !important;
+        border-color: #f59e0b !important;
+        box-shadow: none !important;
     }
     
     /* Protect Streamlit Icons */
@@ -53,71 +84,83 @@ st.markdown("""
     /* Deep Rich Code Blocks for IDE Feel */
     code {
         font-family: 'Fira Code', monospace !important;
-        color: #38bdf8 !important;
+        color: #f59e0b !important;
     }
     pre {
-        background-color: #020617 !important; /* Pitch slate */
+        background: rgba(15, 23, 42, 0.8) !important;
         border: 1px solid #1e293b !important;
-        border-radius: 12px !important;
-        padding: 20px !important;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 4px 20px rgba(0,0,0,0.5) !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        box-shadow: none !important;
     }
     pre code {
         color: #f8fafc !important;
     }
     
-    /* Beautiful Chat Bubbles */
+    /* Refined Chat Bubbles (Left Accent) */
     [data-testid="stChatMessage"] {
-        border: 1px solid #334155 !important;
-        border-radius: 16px !important;
-        padding: 24px !important;
-        margin-bottom: 24px !important;
+        background: rgba(15, 23, 42, 0.5) !important;
+        border: none !important;
+        border-left: 3px solid #f59e0b !important;
+        border-radius: 0 12px 12px 0 !important;
+        padding: 20px 24px !important;
+        margin-bottom: 16px !important;
+        box-shadow: none !important;
     }
-
-    /* Cyberpunk Techy Buttons Overhaul */
+    [data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
+        border-left-color: #64748b !important;
+    }
+    
+    /* Soft Pill Buttons */
     .stButton > button {
-        font-family: 'Fira Code', monospace !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1.5px !important;
-        border-radius: 8px !important;
-        transition: all 0.3s ease !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 500 !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        border-radius: 999px !important;
+        padding: 8px 24px !important;
+        transition: all 0.2s ease !important;
     }
 
-    /* Hint Button (Secondary - Blue Neon) */
+    /* Hint Button (Secondary - Subtle Dark) */
     .stButton > button[kind="secondary"] {
-        background: linear-gradient(145deg, #0f172a, #1e293b) !important;
-        border: 1px solid #38bdf8 !important;
-        color: #e0f2fe !important;
-        box-shadow: 0 0 10px rgba(56, 189, 248, 0.2), inset 0 0 5px rgba(56, 189, 248, 0.1) !important;
+        background: rgba(245, 158, 11, 0.08) !important;
+        border: 1px solid rgba(245, 158, 11, 0.2) !important;
+        color: #fcd34d !important;
+        box-shadow: none !important;
     }
     .stButton > button[kind="secondary"]:hover {
-        background: #38bdf8 !important;
-        color: #020617 !important;
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
-        transform: translateY(-2px) !important;
+        background: rgba(245, 158, 11, 0.15) !important;
+        border-color: #f59e0b !important;
+        transform: none !important;
+        box-shadow: none !important;
     }
 
-    /* Solve Button (Primary - Red/Purple Neon) */
+    /* Solve Button (Primary) */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(145deg, #2a0a18, #4c0519) !important;
-        border: 1px solid #f43f5e !important;
-        color: #fff1f2 !important;
-        box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), inset 0 0 5px rgba(244, 63, 94, 0.1) !important;
+        background: #f59e0b !important;
+        border: none !important;
+        color: #000 !important;
+        box-shadow: none !important;
     }
     .stButton > button[kind="primary"]:hover {
-        background: #f43f5e !important;
-        color: #000000 !important;
-        box-shadow: 0 0 20px rgba(244, 63, 94, 0.6) !important;
-        transform: translateY(-2px) !important;
+        opacity: 0.9 !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Sidebar - Cleaner */
+    section[data-testid="stSidebar"] {
+        background-color: #0d0d14 !important;
+        border-right: 1px solid #1a1a24 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 CodeUnfold")
+st.title("CodeUnfold")
 st.markdown("""
 Welcome to your personal AI coding assistant! Paste any coding problem, assignment, or bug below. 
-You can choose to get **hints and strategies** to learn and solve it yourself, or click **give up** to see the full solution.
+You can choose to get **hints and strategies** to learn and solve it yourself, or **reveal the solution** for a full breakdown.
 """)
 
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -145,8 +188,8 @@ BOUNCER_MODEL = "llama-3.1-8b-instant"
 
 # ---------- UI: Bring Your Own Key ----------
 with st.sidebar:
-    st.markdown("### 🔑 API Failsafe Settings")
-    st.markdown("If the default free API limits are exhausted, you can use your own key here to bypass the limits.")
+    st.markdown("### API Settings")
+    st.markdown("Add your own key to bypass free-tier rate limits.")
     user_gemini_key = st.text_input("Your Gemini API Key (Optional)", type="password")
     if user_gemini_key:
         st.success("Using your personal API key!")
@@ -280,9 +323,9 @@ problem_text = st.session_state.problem_text
 
 col1, col2 = st.columns(2)
 with col1:
-    hint_button = st.button("💡 Give Me Hints (No Spoilers!)", use_container_width=True)
+    hint_button = st.button("💡 Get Hints", use_container_width=True)
 with col2:
-    solve_button = st.button("✅ Show Full Solution (I Give Up)", use_container_width=True, type="primary")
+    solve_button = st.button("🔍 Reveal Solution", use_container_width=True, type="primary")
 
 # ---------- App Logic ----------
 
@@ -313,7 +356,7 @@ if hint_button and problem_text:
         is_valid = check_guardrail(problem_text)
         
     if not is_valid:
-        st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+        st.warning("That doesn't appear to be a valid coding problem. Please paste a valid programming question, assignment, or code snippet.")
         st.stop()
 
     # Reset solution state for a new problem
@@ -352,7 +395,7 @@ elif solve_button and problem_text:
         is_valid = check_guardrail(problem_text)
         
     if not is_valid:
-        st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+        st.warning("That doesn't appear to be a valid coding problem. Please paste a valid programming question, assignment, or code snippet.")
         st.stop()
 
     # Reset for a fresh solve
@@ -445,7 +488,7 @@ elif solve_button and problem_text:
             st.error(f"An error occurred: {e}")
 
 elif (hint_button or solve_button) and not problem_text:
-    st.warning("Please paste a problem description first!")
+    st.warning("Paste a problem description above to begin")
 
 # ---------- Display Solution + Feedback Loop ----------
 if st.session_state.current_solution:
@@ -458,12 +501,11 @@ if st.session_state.current_solution:
     # 2. Assistant Message Bubble (The Solution)
     with st.chat_message("assistant", avatar="🤖"):
         if st.session_state.show_update_alert:
-            st.success("✨ Success! I analyzed your error report and fixed the solution below!")
-            st.balloons()
+            st.success("The solution was updated based on your error report")
             st.session_state.show_update_alert = False
             st.html('<script>window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"});</script>')
 
-        st.markdown("### ✅ Full Solution & Explanation")
+        st.markdown("### Solution Breakdown")
         st.write(st.session_state.current_solution)
 
         attempt_count = len([a for a in st.session_state.attempt_history if a["role"] == "error"])
@@ -484,10 +526,10 @@ if st.session_state.current_solution:
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
-            st.markdown("#### 🏆 Prove it worked to save to memory!")
+            st.markdown("#### Save this approach to memory")
             proof_text = st.text_area("Paste your actual technical success output here (e.g., 'Accepted', 'Passed 10/10'):", height=68)
             
-            if st.button("Verify & Save to Memory", use_container_width=True, type="primary"):
+            if st.button("Verify & Save", use_container_width=True, type="primary"):
                 if not proof_text or len(proof_text) < 3:
                     st.error("Please provide actual proof of execution.")
                 elif not groq_client:
@@ -537,7 +579,7 @@ if st.session_state.current_solution:
     st.divider()
 
     # Floating input at the bottom of the screen
-    error_text = st.chat_input("🐛 Did it fail? Paste the specific error or failed test case here to fix the code:")
+    error_text = st.chat_input("Paste your error output to fix the solution")
 
     if error_text:
         # Record this failed attempt in history
