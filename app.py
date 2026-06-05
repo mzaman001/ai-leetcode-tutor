@@ -176,15 +176,14 @@ if "attempt_history" not in st.session_state:
 # ---------- Helpers ----------
 def get_past_lessons():
     try:
-        response = supabase.table("lessons").select("lesson").execute()
-        return [row["lesson"] for row in response.data]
+        response = supabase.table("lessons").select("lesson_text").execute()
+        return [row["lesson_text"] for row in response.data]
     except Exception:
         return []
 
-
-def save_lesson(lesson_text):
+def save_lesson(lesson_text_val):
     try:
-        supabase.table("lessons").insert({"lesson": lesson_text}).execute()
+        supabase.table("lessons").insert({"lesson_text": lesson_text_val}).execute()
     except Exception:
         pass
 
@@ -292,7 +291,15 @@ def check_guardrail(text):
     """Fast guardrail check to ensure input is coding-related before wasting tokens."""
     guardrail_prompt = f"Is the following text a valid coding problem, programming concept, or code snippet? Answer with EXACTLY 'YES' or 'NO'. Text: {text}"
     try:
-        response = call_ai(guardrail_prompt)
+        if groq_client:
+            chat_completion = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": guardrail_prompt}],
+                model=BOUNCER_MODEL,
+                temperature=0.0,
+            )
+            response = chat_completion.choices[0].message.content
+        else:
+            response = call_ai(guardrail_prompt)
         return "YES" in response.upper()
     except:
         return True # Failsafe open if API crashes
