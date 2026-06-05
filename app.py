@@ -21,6 +21,11 @@ st.markdown("""
         font-family: 'Inter', -apple-system, sans-serif !important;
     }
     
+    /* Protect Streamlit Icons */
+    span[class*="material-symbols"], i[class*="material-symbols"], .material-icons {
+        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+    }
+    
     /* Deep Rich Code Blocks for IDE Feel */
     code {
         font-family: 'Fira Code', monospace !important;
