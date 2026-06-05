@@ -15,10 +15,34 @@ st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide")
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-    
+    /* Techy Grid Background (Blueprint Paper Aesthetic) */
+    .stApp {
+        background-color: #020617 !important;
+        background-image: 
+            linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px) !important;
+        background-size: 40px 40px !important;
+    }
+
     /* Enforce Typography */
     h1, h2, h3, p, li, label {
         font-family: 'Inter', -apple-system, sans-serif !important;
+    }
+    
+    /* Tech Editor Input (Text Area) */
+    .stTextArea textarea {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid #334155 !important;
+        color: #e0f2fe !important;
+        font-family: 'Fira Code', monospace !important;
+        border-radius: 8px !important;
+        box-shadow: inset 0 4px 10px rgba(0,0,0,0.5) !important;
+        transition: all 0.3s ease !important;
+    }
+    .stTextArea textarea:focus {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 15px rgba(56,189,248,0.2), inset 0 4px 10px rgba(0,0,0,0.5) !important;
     }
     
     /* Protect Streamlit Icons */
@@ -49,12 +73,44 @@ st.markdown("""
         padding: 24px !important;
         margin-bottom: 24px !important;
     }
-    
-    /* Hide Streamlit Default UI Elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    [data-testid="collapsedControl"] {visibility: visible;}
+
+    /* Cyberpunk Techy Buttons Overhaul */
+    .stButton > button {
+        font-family: 'Fira Code', monospace !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+    }
+
+    /* Hint Button (Secondary - Blue Neon) */
+    .stButton > button[kind="secondary"] {
+        background: linear-gradient(145deg, #0f172a, #1e293b) !important;
+        border: 1px solid #38bdf8 !important;
+        color: #e0f2fe !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.2), inset 0 0 5px rgba(56, 189, 248, 0.1) !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background: #38bdf8 !important;
+        color: #020617 !important;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* Solve Button (Primary - Red/Purple Neon) */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(145deg, #2a0a18, #4c0519) !important;
+        border: 1px solid #f43f5e !important;
+        color: #fff1f2 !important;
+        box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), inset 0 0 5px rgba(244, 63, 94, 0.1) !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: #f43f5e !important;
+        color: #000000 !important;
+        box-shadow: 0 0 20px rgba(244, 63, 94, 0.6) !important;
+        transform: translateY(-2px) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -228,7 +284,7 @@ col1, col2 = st.columns(2)
 with col1:
     hint_button = st.button("💡 Give Me Hints (No Spoilers!)", use_container_width=True)
 with col2:
-    solve_button = st.button("✅ Show Full Solution (I Give Up)", use_container_width=True)
+    solve_button = st.button("✅ Show Full Solution (I Give Up)", use_container_width=True, type="primary")
 
 # ---------- App Logic ----------
 
