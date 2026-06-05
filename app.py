@@ -41,8 +41,11 @@ st.markdown("""
     /* Minimal Dark Pro Background with Top Accent Bar */
     .stApp {
         background-color: #0a0a0f !important;
-        background-image: radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.04) 0%, transparent 60%) !important;
-        background-size: auto !important;
+    }
+    
+    /* Prevent browser from auto-scrolling on streaming/new content */
+    section.main {
+        overflow-anchor: none !important;
     }
     .stApp::before {
         content: '';
@@ -62,8 +65,7 @@ st.markdown("""
     
     /* Tech Editor Input (Text Area) */
     .stTextArea textarea {
-        background-color: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(10px);
+        background-color: rgba(15, 23, 42, 0.95) !important;
         border: 1px solid #334155 !important;
         color: #fef3c7 !important;
         font-family: 'Fira Code', monospace !important;
@@ -589,10 +591,12 @@ if st.session_state.current_solution:
 
     # 2. Assistant Message Bubble (The Solution)
     with st.chat_message("assistant", avatar="🤖"):
+        # Always scroll to top when a solution loads so the user sees the start
+        st.html('<script>window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"});</script>')
+        
         if st.session_state.show_update_alert:
             st.success("The solution was updated based on your error report")
             st.session_state.show_update_alert = False
-            st.html('<script>window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"});</script>')
 
         st.markdown("### Solution Breakdown")
         st.write(st.session_state.current_solution)
