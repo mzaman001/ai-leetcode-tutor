@@ -46,10 +46,13 @@ st.markdown("""
     }
     
     /* Hide Streamlit Default UI Elements */
-    [data-testid="stHeader"] {
-        display: none !important;
-    }
     #MainMenu {
+        visibility: hidden !important;
+    }
+    header {
+        background-color: transparent !important;
+    }
+    [data-testid="stToolbar"] {
         visibility: hidden !important;
     }
     footer {
