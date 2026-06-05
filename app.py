@@ -240,10 +240,10 @@ def call_ai(prompt):
             response = temp_client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.2, thinking_config=types.ThinkingConfig(thinking_budget=4096))
+                config=types.GenerateContentConfig(temperature=0.2)
             )
             st.sidebar.caption(f"🤖 Answered by: `gemini-2.5-flash` (via your personal key)")
-            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text and not getattr(part, "thought", False)]
+            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text]
             return "\n".join(output_parts) if output_parts else response.text
         except Exception as e:
             raise Exception(f"🛑 Your personal API key failed: {e}")
@@ -251,14 +251,11 @@ def call_ai(prompt):
     # 2. Default Gemini Fallback Chain
     last_error = None
     for model_id in GEMINI_MODELS:
-        supports_thinking = "2.5" in model_id
         config = types.GenerateContentConfig(temperature=0.2)
-        if supports_thinking:
-            config = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_budget=4096), temperature=0.2)
 
         try:
             response = default_ai_client.models.generate_content(model=model_id, contents=prompt, config=config)
-            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text and not getattr(part, "thought", False)]
+            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text]
             st.sidebar.caption(f"🤖 Answered by: `{model_id}`")
             return "\n".join(output_parts) if output_parts else response.text
 
