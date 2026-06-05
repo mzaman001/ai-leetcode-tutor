@@ -139,8 +139,6 @@ supabase: Client = create_client(supabase_url, supabase_key)
 groq_api_key = os.environ.get("GROQ_API_KEY")
 groq_client = Groq(api_key=groq_api_key) if groq_api_key else None
 
-import time
-
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-pro-exp-02-05", "gemini-2.0-flash-lite"]
 GROQ_MODEL = "llama-3.3-70b-versatile"
 BOUNCER_MODEL = "llama-3.1-8b-instant"
@@ -174,6 +172,7 @@ if "attempt_history" not in st.session_state:
 
 
 # ---------- Helpers ----------
+@st.cache_data(ttl=600)
 def get_past_lessons():
     try:
         response = supabase.table("lessons").select("lesson_text").execute()
@@ -255,8 +254,8 @@ def call_ai(prompt):
             
     # 4. Total Failure Failsafe
     raise Exception(
-        f"🛑 Extremely High Traffic! Both the primary (Gemini) and backup (Groq) servers are currently maxed out.\\n\\n"
-        f"To continue instantly, please paste your own Gemini API key into the sidebar.\\n"
+        f"🛑 Extremely High Traffic! Both the primary (Gemini) and backup (Groq) servers are currently maxed out.\n\n"
+        f"To continue instantly, please paste your own Gemini API key into the sidebar.\n"
         f"(Debug Info: {str(last_error)[:100]})"
     )
 
@@ -289,6 +288,10 @@ with col2:
 
 def check_guardrail(text):
     """Fast guardrail check to ensure input is coding-related before wasting tokens."""
+    # Fast regex pre-check for extremely short or obviously non-code input
+    if len(text.strip()) < 10 and not re.search(r'[\{\}\(\)\[\];=]', text):
+        return False
+        
     guardrail_prompt = f"Is the following text a valid coding problem, programming concept, or code snippet? Answer with EXACTLY 'YES' or 'NO'. Text: {text}"
     try:
         if groq_client:
@@ -400,9 +403,9 @@ elif solve_button and problem_text:
                         temperature=0.1,
                     )
                     raw_code = chat_completion.choices[0].message.content.strip()
+                    raw_code = chat_completion.choices[0].message.content.strip()
                     
-                with st.spinner("🤖 Agentic Tutor: Gemini is creating a beautiful step-by-step lesson..."):
-                    final_prompt = f"""You are the world's friendliest, most patient, and most beloved LeetCode Tutor.
+                final_prompt = f"""You are the world's friendliest, most patient, and most beloved LeetCode Tutor.
                     
                     I have already solved the problem perfectly. Here is the exact, flawless Python code:
                     
@@ -423,11 +426,12 @@ elif solve_button and problem_text:
                     """
             
             # Use the fallback chain to process whichever prompt we settled on
-            if not groq_client:
+            if groq_client:
+                with st.spinner("🤖 Agentic Tutor: Gemini is creating a beautiful step-by-step lesson..."):
+                    final_result = call_ai(final_prompt)
+            else:
                 with st.spinner("🤖 Agentic Draft: Generating initial solution with Gemini..."):
-                    pass
-                    
-            final_result = call_ai(final_prompt)
+                    final_result = call_ai(final_prompt)
                 
             # Clean out internal thought processes
             final_result = re.sub(r"<scratchpad>.*?</scratchpad>", "", final_result, flags=re.IGNORECASE | re.DOTALL)
@@ -472,6 +476,11 @@ if st.session_state.current_solution:
         if st.session_state.get("lesson_saved", False):
             st.success("✅ Saved to AI memory! I will remember this trick for future problems.", icon="🧠")
             if st.button("Undo (Remove from Memory)"):
+                try:
+                    supabase.table("lessons").delete().eq("lesson_text", st.session_state.get("last_saved_lesson_text", "")).execute()
+                    get_past_lessons.clear() # Clear cache
+                except:
+                    pass
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
@@ -513,12 +522,13 @@ if st.session_state.current_solution:
                                 if lesson_match:
                                     lesson_text = "✅ PROVEN: " + lesson_match.group(1).strip()
                                 else:
-                                    clean_reply = bouncer_reply.replace("REJECT", "").strip()
-                                    lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
+                                lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
                                 
-                                save_lesson(lesson_text)
-                                st.session_state.lesson_saved = True
-                                st.balloons()
+                            save_lesson(lesson_text)
+                            get_past_lessons.clear() # Clear cache
+                            st.session_state.last_saved_lesson_text = lesson_text
+                            st.session_state.lesson_saved = True
+                            st.balloons()
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Bouncer AI encountered an error: {e}")
@@ -531,6 +541,9 @@ if st.session_state.current_solution:
     if error_text:
         # Record this failed attempt in history
         st.session_state.attempt_history.append({"role": "error", "content": error_text})
+        
+        # Truncate history to last 6 entries (3 cycles) to prevent token overflow
+        st.session_state.attempt_history = st.session_state.attempt_history[-6:]
 
         # Build a full history of all past attempts so the model NEVER repeats itself
         history_block = ""
@@ -593,6 +606,9 @@ if st.session_state.current_solution:
                 if lesson_match:
                     lesson_text = lesson_match.group(1).strip()
                     save_lesson(lesson_text)
+                    get_past_lessons.clear() # Clear cache
+                    st.session_state.last_saved_lesson_text = lesson_text
+                    st.session_state.lesson_saved = True
                     new_text = re.sub(
                         r"<LESSON>.*?</LESSON>",
                         f"\n\n**🧠 New Lesson Learned & Saved to Memory:**\n{lesson_text}",
@@ -604,7 +620,6 @@ if st.session_state.current_solution:
                 st.session_state.attempt_history.append({"role": "solution", "content": new_text})
                 st.session_state.current_solution = new_text
                 st.session_state.show_update_alert = True
-                st.session_state.lesson_saved = False
                 st.rerun()
             except Exception as e:
                 st.error(f"An error occurred: {e}")
