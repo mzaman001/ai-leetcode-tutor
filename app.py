@@ -44,6 +44,17 @@ st.markdown("""
         padding: 24px !important;
         margin-bottom: 24px !important;
     }
+    
+    /* Hide Streamlit Default UI Elements */
+    [data-testid="stHeader"] {
+        display: none !important;
+    }
+    #MainMenu {
+        visibility: hidden !important;
+    }
+    footer {
+        visibility: hidden !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
