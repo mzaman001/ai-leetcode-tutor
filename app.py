@@ -522,13 +522,14 @@ if st.session_state.current_solution:
                                 if lesson_match:
                                     lesson_text = "✅ PROVEN: " + lesson_match.group(1).strip()
                                 else:
-                                lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
+                                    clean_reply = bouncer_reply.replace("REJECT", "").strip()
+                                    lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
                                 
-                            save_lesson(lesson_text)
-                            get_past_lessons.clear() # Clear cache
-                            st.session_state.last_saved_lesson_text = lesson_text
-                            st.session_state.lesson_saved = True
-                            st.balloons()
+                                save_lesson(lesson_text)
+                                get_past_lessons.clear() # Clear cache
+                                st.session_state.last_saved_lesson_text = lesson_text
+                                st.session_state.lesson_saved = True
+                                st.balloons()
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Bouncer AI encountered an error: {e}")
