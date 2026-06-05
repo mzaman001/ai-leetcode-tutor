@@ -239,7 +239,23 @@ with col2:
     solve_button = st.button("✅ Show Full Solution (I Give Up)", use_container_width=True)
 
 # ---------- App Logic ----------
+
+def check_guardrail(text):
+    """Fast guardrail check to ensure input is coding-related before wasting tokens."""
+    guardrail_prompt = f"Is the following text a valid coding problem, programming concept, or code snippet? Answer with EXACTLY 'YES' or 'NO'. Text: {text}"
+    try:
+        response = call_ai(guardrail_prompt)
+        return "YES" in response.upper()
+    except:
+        return True # Failsafe open if API crashes
+
 if hint_button and problem_text:
+    # 1. Guardrail Check
+    with st.spinner("👀 Checking input..."):
+        if not check_guardrail(problem_text):
+            st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+            st.stop()
+
     # Reset solution state for a new problem
     st.session_state.current_solution = None
     st.session_state.attempt_history = []
@@ -271,6 +287,12 @@ if hint_button and problem_text:
             st.error(f"An error occurred: {e}")
 
 elif solve_button and problem_text:
+    # 1. Guardrail Check
+    with st.spinner("👀 Checking input..."):
+        if not check_guardrail(problem_text):
+            st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+            st.stop()
+
     # Reset for a fresh solve
     st.session_state.attempt_history = []
 
