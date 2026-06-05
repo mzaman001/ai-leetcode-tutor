@@ -367,18 +367,50 @@ if hint_button and problem_text:
         lessons_context = "\n\nCRITICAL PAST LESSONS TO REMEMBER:\n" + "\n".join([f"- {l}" for l in past_lessons])
 
     with st.spinner("Analyzing problem and generating beginner-friendly hints..."):
-        prompt = f"""You are a LeetCode Grandmaster and patient tutor. A student needs help with a coding problem.
-        
-        RULES:
-        1. DO NOT give the final code solution.
-        2. Explain concepts as if the student is a complete beginner. Avoid assuming prior knowledge.
-        3. Explicitly define ANY technical terms you use.
-        4. Break down the logic into very small, easily digestible steps.
-        5. Use clear visual formatting: lots of spacing, bullet points, and short paragraphs.{lessons_context}
-        
-        Problem:
-        {problem_text}
-        """
+        prompt = f"""You are a LeetCode Grandmaster and patient tutor. A student wants hints to solve this problem themselves — DO NOT give the final code.
+
+Use this EXACT structure. Write in **short paragraphs**, plain language, and define every technical term.
+
+---
+
+## 💭 1. What's This Problem Really Asking?
+
+Restate the problem in simpler terms. Point out the key observation that leads to the solution, but don't reveal the full approach.
+
+---
+
+## 🧠 2. Concepts You'll Need *(explain each from scratch)*
+
+List the data structures and techniques relevant to this problem. For each one:
+- **What is it?** Simple definition with a real-world analogy
+- **Why might it help here?** A hint about how it connects
+
+---
+
+## 🪜 3. Step-by-Step Thinking Path *(no code, no pseudo-code)*
+
+Give 3-5 numbered hints that build toward the solution:
+
+1. A gentle nudge about the first thing they should think about
+2. A hint about the key insight or pattern
+3. What data structure naturally fits and why
+4. How to handle edge cases
+5. What to optimize for (time/space)
+
+Each hint should be a **question or thought provoker**, not an instruction. The student should still have to figure out the implementation.
+
+---
+
+## ⚠️ 4. Common Pitfalls
+
+1-2 mistakes beginners often make with this type of problem. Warn them without showing how to avoid it.
+
+{lessons_context}
+
+---
+
+**Remember:** DO NOT write any code. DO NOT give the full algorithm. The student wants to learn by doing.
+"""
         try:
             result = call_ai(prompt)
             st.markdown("### 💡 Hints & Strategy")
@@ -443,27 +475,87 @@ elif solve_button and problem_text:
                         temperature=0.1,
                     )
                     raw_code = chat_completion.choices[0].message.content.strip()
-                    raw_code = chat_completion.choices[0].message.content.strip()
                     
-                final_prompt = f"""You are the world's friendliest, most patient, and most beloved LeetCode Tutor.
-                    
-                    I have already solved the problem perfectly. Here is the exact, flawless Python code:
-                    
-                    ```python
-                    {raw_code}
-                    ```
-                    
-                    Problem Description:
-                    {problem_text}
-                    
-                    YOUR JOB is to teach this code to a beginner using the following EXACT structure. You MUST act as an explicit, literal pair-programmer.
-                    
-                    1. **The "Aha!" Moment:** Explain the core logic or trick behind the solution using a simple real-world analogy BEFORE showing any code.
-                    2. **The Code Solution:** Present the raw Python code exactly as provided above. DO NOT change a single character of the code logic.
-                    3. **Line-by-Line Hand-Holding (CRITICAL):** You MUST break down the code into tiny chunks. Display 1 or 2 lines of the code in a markdown code block, and then explain EXACTLY what those lines do, why that syntax is used, and what the variables are holding under the hood. Repeat this until EVERY SINGLE LINE of the script has been explicitly explained.
-                    4. **Example Trace:** Take a simple input example and trace it through the variables step-by-step so the student can visualize the execution.
-                    5. **Complexity:** Explain Time and Space complexity in simple terms.{lessons_context}
-                    """
+                final_prompt = f"""You are a world-class computer science tutor — patient, thorough, and passionate about teaching. A student has given up on a problem and needs you to hand-hold them from zero to full understanding.
+
+I have already solved the problem perfectly. Here is the exact Python code:
+
+```python
+{raw_code}
+```
+Problem: {problem_text}
+
+Teach this solution using the EXACT structure below. Write in short paragraphs, plain language, and define every technical term like it's the first time the student has heard it. Avoid long blocks of text — break things up.
+
+## 📌 1. What Are We Solving?
+Restate the problem in one plain-English sentence. Then answer:
+
+- **Input:** What are we given? (data type, range, an example value)
+- **Output:** What must we return?
+- **Constraints:** What do the limits tell us? (e.g., "n ≤ 10⁵ means O(n²) will be too slow")
+
+Keep this section short — 3–4 lines max. Just set the stage.
+
+## 🧱 2. The Core Concepts (Explained From Scratch)
+For each data structure, algorithm, or technique used in the solution, explain it before we touch any code.
+
+Structure each concept like this:
+- **What is it?** A simple definition with a real-world analogy. (e.g., "A hashmap is like a coat check — you hand in your coat (the key) and get a ticket (the value) to find it instantly later.")
+- **Why do we need it here?** Why does THIS problem specifically need THIS concept?
+- **Visualize it:** Describe it in words so the student can picture it. (e.g., "Imagine two pointers starting at opposite ends of the array, moving toward each other...")
+
+If there are multiple concepts, order them so each one builds on the last. Keep explanations 3–5 sentences per concept. No more.
+
+## 🪜 3. Building the Solution (No Code Yet)
+Walk through the algorithm in plain English. Use numbered steps. Each step is one clear thought.
+
+1. First, we ...
+2. Then, for each element, we ...
+3. If the condition is met, we ...
+4. After the loop, we return ...
+
+At every decision point, pause and explain:
+- "Why do it this way and not the other way?"
+- "What would break if we skipped this step?"
+
+End this section with a 2–3 line pseudo-code summary so they see the full flow before reading real syntax.
+
+## 🐍 4. The Code
+(present the exact code here — no changes)
+
+## 🔬 5. Line-by-Line Breakdown
+This is the most important section. Take 1–3 lines at a time and explain:
+
+```python
+# the code chunk
+```
+- **What it does:** One sentence in plain language
+- **Syntax:** Why this keyword? What does this function return? What does this operator mean?
+- **Variable state:** What does each variable hold AFTER this line runs?
+- **Watch out:** What might a beginner misunderstand here?
+
+Repeat this until every single line has been covered.
+
+## ✅ 6. Trace Through an Example
+Pick the simplest meaningful input. Walk through the code step-by-step using a table:
+
+| Step | Code | Variable State | Why It Happens |
+|---|---|---|---|
+| 1 | `x = 5` | x = 5 | We set x to the first element |
+| 2 | `if x > 0:` | x = 5, condition = True | 5 is greater than 0, so we enter the block |
+| ... | ... | ... | ... |
+
+Show the full journey from input → output so the student can visualize exactly how data flows.
+
+## 📊 7. Complexity in Simple Terms
+- **Time Complexity:** Why is it O(...)? In plain English: "If the input size doubles, the runtime grows by roughly..."
+- **Space Complexity:** Where does the extra memory come from? Does the function use extra arrays, recursion, or does it modify in-place?
+
+## 💡 8. Key Takeaway
+One sentence the student should remember for similar problems. (e.g., "When you need to compare elements from both ends of an array, think two pointers.")
+
+{lessons_context}
+"""
             
             # Use the fallback chain to process whichever prompt we settled on
             if groq_client:
