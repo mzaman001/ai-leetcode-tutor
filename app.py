@@ -10,7 +10,7 @@ import re
 # Load environment variables
 load_dotenv()
 
-st.set_page_config(page_title="Universal AI Tutor", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide")
 
 st.markdown("""
 <style>
@@ -66,7 +66,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 Universal AI Coding Tutor")
+st.title("🤖 CodeUnfold")
 st.markdown("""
 Welcome to your personal AI coding assistant! Paste any coding problem, assignment, or bug below. 
 You can choose to get **hints and strategies** to learn and solve it yourself, or click **give up** to see the full solution.

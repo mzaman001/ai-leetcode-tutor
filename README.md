@@ -1,4 +1,4 @@
-# 🤖 Universal AI Coding Tutor
+# 🤖 CodeUnfold
 
 ![UI Showcase](https://img.shields.io/badge/UI-AMOLED_Chat-black?style=for-the-badge)
 ![Tech Stack](https://img.shields.io/badge/Tech-Python_|_Streamlit_|_Supabase-blue?style=for-the-badge)
@@ -77,8 +77,8 @@ If a user learns a new trick from a failed attempt, they can submit their termin
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ai-leetcode-tutor.git
-   cd ai-leetcode-tutor
+   git clone https://github.com/YOUR_USERNAME/CodeUnfold.git
+   cd CodeUnfold
    ```
 
 2. Install dependencies:
