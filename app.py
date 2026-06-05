@@ -252,9 +252,11 @@ def check_guardrail(text):
 if hint_button and problem_text:
     # 1. Guardrail Check
     with st.spinner("👀 Checking input..."):
-        if not check_guardrail(problem_text):
-            st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
-            st.stop()
+        is_valid = check_guardrail(problem_text)
+        
+    if not is_valid:
+        st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+        st.stop()
 
     # Reset solution state for a new problem
     st.session_state.current_solution = None
@@ -289,9 +291,11 @@ if hint_button and problem_text:
 elif solve_button and problem_text:
     # 1. Guardrail Check
     with st.spinner("👀 Checking input..."):
-        if not check_guardrail(problem_text):
-            st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
-            st.stop()
+        is_valid = check_guardrail(problem_text)
+        
+    if not is_valid:
+        st.warning("👋 It looks like you didn't paste a coding problem! Please paste a valid programming question, assignment, or code snippet.")
+        st.stop()
 
     # Reset for a fresh solve
     st.session_state.attempt_history = []
