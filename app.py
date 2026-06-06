@@ -346,6 +346,63 @@ def execute_code(code: str, timeout: int = 10) -> dict:
             pass
 
 
+def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
+    """
+    Shared helper: builds the fix prompt, calls the AI, updates session state.
+    Used by both the manual error expander and the Run Code auto-send button.
+    """
+    error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
+    code_to_fix = st.session_state.raw_code or "(code unavailable — infer from the problem)"
+    fix_prompt = f"""You are an expert Python debugger and LeetCode Grandmaster.
+
+PROBLEM:
+{prob_text}
+
+CODE THAT FAILED:
+```python
+{code_to_fix}
+```
+
+ALL ERRORS SO FAR (do NOT repeat these mistakes):
+{error_history}
+
+INSTRUCTIONS:
+1. Identify the root cause of each error above.
+2. Do NOT reuse any previously failed approach.
+3. Write a fully correct, optimal, Pythonic solution that is compatible with Python 3.8+.
+4. Mentally trace through at least 2 test cases (including an edge case) before responding.
+
+RESPONSE FORMAT:
+
+## 🔍 What Went Wrong
+Clear explanation of the bug(s) in plain language.
+
+## ✅ Corrected Solution
+The complete, working Python code in a ```python block.
+
+## 📖 What Changed and Why
+Explain the fix step by step for a beginner.
+
+## ✔️ Verification
+Trace through one example to prove the fix works.
+
+## 💡 Proposed Lesson
+A 1-sentence generalized takeaway. Label it as unverified.
+{get_lessons_context()}"""
+    with st.spinner("Analyzing error and generating fix..."):
+        try:
+            new_text = call_ai(fix_prompt, user_key)
+            new_code_match = re.search(r"```python\n(.*?)```", new_text, re.DOTALL)
+            if new_code_match:
+                st.session_state.raw_code = new_code_match.group(1).strip()
+            st.session_state.current_solution = new_text
+            st.session_state.show_update_alert = True
+            st.session_state.execution_output = None  # Clear stale run result
+            st.rerun()
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+
+
 # ---------- UI ----------
 def _sync_problem():
     """Sync text area → session state. Clears stale results when the problem changes."""
@@ -620,8 +677,12 @@ if st.session_state.current_solution:
 
     # --- Run Code Section ---
     if st.session_state.raw_code:
-        with st.expander("▶ Run Code — Test it right here", expanded=bool(st.session_state.execution_output)):
-            st.caption("The AI generates test cases from the problem and runs your code instantly in a sandboxed environment.")
+        with st.expander("▶ Run Code — Quick Sanity Check", expanded=bool(st.session_state.execution_output)):
+            st.info(
+                "⚠️ **This is a local sanity check only.** The AI generates a few simple test cases from the problem "
+                "description. Passing here does **not** guarantee the code will pass on LeetCode, which tests "
+                "hundreds of edge cases against its own environment."
+            )
 
             if st.button("▶ Run Code", type="primary", use_container_width=True, key="run_code_btn"):
                 # Ask Groq fast model to build a complete runnable script with test cases.
@@ -664,148 +725,55 @@ if st.session_state.current_solution:
             if st.session_state.execution_output:
                 out = st.session_state.execution_output
                 if out["success"] and out["stdout"].strip():
-                    st.success("✅ Code ran successfully!")
+                    st.success("✅ Passed local sanity check (AI-generated test cases only)")
                     st.code(out["stdout"], language="text")
-                    # One-click: send success proof to the Bouncer flow
-                    st.caption("Looking correct? Toggle '💾 Save this approach to memory' above to verify and save it.")
+                    st.warning(
+                        "**Still failed on LeetCode?** Paste the LeetCode error below — "
+                        "it will be automatically sent to the fix loop."
+                    )
+                    lc_error = st.text_area(
+                        "LeetCode error output:",
+                        height=100,
+                        key="leetcode_error_after_success",
+                        placeholder="e.g.  NameError: name 'Solution' is not defined\n      Wrong Answer: expected [3,4] got [-1,-1]",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("🔧 Fix with LeetCode Error", key="fix_from_lc_success", use_container_width=True):
+                        if lc_error.strip():
+                            st.session_state.execution_output = None
+                            st.session_state.attempt_errors.append(lc_error.strip())
+                            st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
+                            _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
+                        else:
+                            st.warning("Paste the LeetCode error first.")
                 elif out["stderr"].strip():
-                    st.error("❌ Execution failed.")
+                    st.error("❌ Execution failed (local environment).")
                     st.code(out["stderr"], language="text")
-                    # One-click: auto-fill the error fix box with this error
                     if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
                         st.session_state.execution_output = None
                         st.session_state.attempt_errors.append(out["stderr"].strip())
                         st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
-                        # Trigger the fix loop inline
-                        error_history = "\n".join(
-                            f"Error #{i + 1}:\n{e}" for i, e in enumerate(st.session_state.attempt_errors)
-                        )
-                        code_to_fix = st.session_state.raw_code or "(code unavailable)"
-                        auto_fix_prompt = f"""You are an expert Python debugger and LeetCode Grandmaster.
-
-PROBLEM:
-{problem_text}
-
-CODE THAT FAILED:
-```python
-{code_to_fix}
-```
-
-ALL ERRORS SO FAR (do NOT repeat these mistakes):
-{error_history}
-
-INSTRUCTIONS:
-1. Identify the root cause of each error above.
-2. Do NOT reuse any previously failed approach.
-3. Write a fully correct, optimal, Pythonic solution.
-4. Mentally trace through at least 2 test cases before responding.
-
-RESPONSE FORMAT:
-
-## 🔍 What Went Wrong
-Clear explanation of the bug(s) in plain language.
-
-## ✅ Corrected Solution
-The complete, working Python code in a ```python block.
-
-## 📖 What Changed and Why
-Explain the fix step by step for a beginner.
-
-## ✔️ Verification
-Trace through one example to prove the fix works.
-
-## 💡 Proposed Lesson
-A 1-sentence generalized takeaway. Label it as unverified.
-{get_lessons_context()}"""
-                        with st.spinner("Analyzing error and generating fix..."):
-                            try:
-                                new_text = call_ai(auto_fix_prompt, user_gemini_key)
-                                new_code_match = re.search(r"```python\n(.*?)```", new_text, re.DOTALL)
-                                if new_code_match:
-                                    st.session_state.raw_code = new_code_match.group(1).strip()
-                                st.session_state.current_solution = new_text
-                                st.session_state.show_update_alert = True
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"An error occurred: {e}")
+                        _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
                 else:
                     st.warning("Code ran but produced no output. Your solution may need explicit print() calls.")
 
     # --- Manual Error Fix Section ---
-    # Using an expander + button instead of st.chat_input, which created a
-    # misleading "chatbot" mental model and floated persistently on screen.
-    with st.expander("🐛 Got an error? Click here to fix the solution"):
-        st.caption("Paste the exact error message or wrong output from your testing environment.")
+    with st.expander("🐛 Paste a LeetCode error to fix the solution"):
+        st.caption(
+            "Paste any error directly from LeetCode — Wrong Answer, Runtime Error, Time Limit Exceeded. "
+            "The AI uses the exact real error to fix the code, not a simulated one."
+        )
         error_input = st.text_area(
-            "Error output:",
+            "LeetCode error output:",
             height=120,
             key="error_input_box",
             label_visibility="collapsed",
+            placeholder="e.g.  Wrong Answer\n      Input: nums = [5,7,7,8,8,10], target = 6\n      Expected: [3,4]\n      Got: [-1,-1]",
         )
         if st.button("🔧 Fix My Solution", type="primary", use_container_width=True):
             if not error_input.strip():
                 st.warning("Paste your error output first.")
             else:
                 st.session_state.attempt_errors.append(error_input.strip())
-                # Cap at last 3 errors to keep the fix prompt lean
                 st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
-
-                error_history = "\n".join(
-                    f"Error #{i + 1}:\n{e}" for i, e in enumerate(st.session_state.attempt_errors)
-                )
-                lessons_context = get_lessons_context()
-
-                # Send only the raw code — NOT the 600-line markdown explanation
-                code_to_fix = st.session_state.raw_code or "(original code not available — infer from the problem)"
-
-                fix_prompt = f"""You are an expert Python debugger and LeetCode Grandmaster.
-
-PROBLEM:
-{problem_text}
-
-CODE THAT FAILED:
-```python
-{code_to_fix}
-```
-
-ALL ERRORS SO FAR (do NOT repeat these mistakes):
-{error_history}
-
-INSTRUCTIONS:
-1. Identify the root cause of each error above.
-2. Do NOT reuse any previously failed approach.
-3. Write a fully correct, optimal, Pythonic solution.
-4. Mentally trace through at least 2 test cases (including an edge case) before responding.
-
-RESPONSE FORMAT:
-
-## 🔍 What Went Wrong
-Clear explanation of the bug(s) in plain language.
-
-## ✅ Corrected Solution
-The complete, working Python code in a ```python block.
-
-## 📖 What Changed and Why
-Explain the fix step by step for a beginner.
-
-## ✔️ Verification
-Trace through one example to prove the fix works.
-
-## 💡 Proposed Lesson
-A 1-sentence generalized takeaway. Label it as unverified — the student should test first.
-{lessons_context}"""
-
-                try:
-                    with st.spinner("Analyzing error and generating fix..."):
-                        new_text = call_ai(fix_prompt, user_gemini_key)
-
-                    # Extract and store the new raw code for future fix prompts
-                    new_code_match = re.search(r"```python\n(.*?)```", new_text, re.DOTALL)
-                    if new_code_match:
-                        st.session_state.raw_code = new_code_match.group(1).strip()
-
-                    st.session_state.current_solution = new_text
-                    st.session_state.show_update_alert = True
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
