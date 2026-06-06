@@ -13,7 +13,7 @@ from ai_client import (
 load_dotenv()
 init_db()
 
-st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
 # ---------- CSS ----------
 st.markdown("""
