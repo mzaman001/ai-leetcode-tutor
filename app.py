@@ -4,66 +4,39 @@ from google.genai import types
 from groq import Groq
 import os
 from dotenv import load_dotenv
-from supabase import create_client, Client
 import re
 
-# Load environment variables
 load_dotenv()
 
 st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide")
 
+# ---------- CSS ----------
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-    
-    /* Global scrollbar styling */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: transparent; 
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #1e293b; 
-        border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #334155; 
-    }
 
-    /* Text selection styling */
-    ::selection {
-        background: rgba(245, 158, 11, 0.3);
-        color: #f8fafc;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
 
-    /* Minimal Dark Pro Background with Top Accent Bar */
-    .stApp {
-        background-color: #0a0a0f !important;
-    }
-    
-    /* Prevent browser from auto-scrolling on streaming/new content */
-    section.main {
-        overflow-anchor: none !important;
-    }
+    ::selection { background: rgba(245, 158, 11, 0.3); color: #f8fafc; }
+
+    .stApp { background-color: #0a0a0f !important; }
+    section.main { overflow-anchor: none !important; }
     .stApp::before {
         content: '';
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
+        top: 0; left: 0; right: 0;
         height: 2px;
         background: linear-gradient(90deg, #f59e0b, #f97316);
         z-index: 999;
     }
 
-    /* Enforce Typography */
     h1, h2, h3, p, li, label {
         font-family: 'Inter', -apple-system, sans-serif !important;
     }
-    
-    /* Tech Editor Input (Text Area) */
+
     .stTextArea textarea {
         background-color: rgba(15, 23, 42, 0.95) !important;
         border: 1px solid #334155 !important;
@@ -77,13 +50,11 @@ st.markdown("""
         border-color: #f59e0b !important;
         box-shadow: none !important;
     }
-    
-    /* Protect Streamlit Icons */
+
     span[class*="material-symbols"], i[class*="material-symbols"], .material-icons {
         font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
     }
-    
-    /* Deep Rich Code Blocks for IDE Feel */
+
     code {
         font-family: 'Fira Code', monospace !important;
         color: #f59e0b !important;
@@ -95,11 +66,8 @@ st.markdown("""
         padding: 16px !important;
         box-shadow: none !important;
     }
-    pre code {
-        color: #f8fafc !important;
-    }
-    
-    /* Refined Chat Bubbles (Left Accent) */
+    pre code { color: #f8fafc !important; }
+
     [data-testid="stChatMessage"] {
         background: rgba(15, 23, 42, 0.5) !important;
         border: none !important;
@@ -112,8 +80,7 @@ st.markdown("""
     [data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
         border-left-color: #64748b !important;
     }
-    
-    /* Soft Pill Buttons */
+
     .stButton > button {
         font-family: 'Inter', sans-serif !important;
         font-weight: 500 !important;
@@ -123,8 +90,6 @@ st.markdown("""
         padding: 8px 24px !important;
         transition: all 0.2s ease !important;
     }
-
-    /* Hint Button (Secondary - Subtle Dark) */
     .stButton > button[kind="secondary"] {
         background: rgba(245, 158, 11, 0.08) !important;
         border: 1px solid rgba(245, 158, 11, 0.2) !important;
@@ -134,11 +99,8 @@ st.markdown("""
     .stButton > button[kind="secondary"]:hover {
         background: rgba(245, 158, 11, 0.15) !important;
         border-color: #f59e0b !important;
-        transform: none !important;
         box-shadow: none !important;
     }
-
-    /* Solve Button (Primary) */
     .stButton > button[kind="primary"] {
         background: #f59e0b !important;
         border: none !important;
@@ -147,11 +109,9 @@ st.markdown("""
     }
     .stButton > button[kind="primary"]:hover {
         opacity: 0.9 !important;
-        transform: none !important;
         box-shadow: none !important;
     }
 
-    /* Sidebar - Cleaner */
     section[data-testid="stSidebar"] {
         background-color: #0d0d14 !important;
         border-right: 1px solid #1a1a24 !important;
@@ -159,182 +119,219 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("CodeUnfold")
-st.markdown("""
-Welcome to your personal AI coding assistant! Paste any coding problem, assignment, or bug below. 
-You can choose to get **hints and strategies** to learn and solve it yourself, or **reveal the solution** for a full breakdown.
-""")
 
-api_key = os.environ.get("GEMINI_API_KEY")
-supabase_url = os.environ.get("SUPABASE_URL")
-supabase_key = os.environ.get("SUPABASE_KEY")
+# ---------- AI Clients (cached — created only once per server session) ----------
+@st.cache_resource
+def _init_clients():
+    api_key = os.environ.get("GEMINI_API_KEY")
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return None, None
+    gemini = genai.Client(api_key=api_key)
+    groq = Groq(api_key=groq_key) if groq_key else None
+    return gemini, groq
 
-if not api_key:
-    st.warning("⚠️ `GEMINI_API_KEY` is not set.")
+_default_gemini, _groq_client = _init_clients()
+
+if not _default_gemini:
+    st.warning("⚠️ `GEMINI_API_KEY` environment variable is not set.")
     st.stop()
 
-if not supabase_url or not supabase_key:
-    st.warning("⚠️ Supabase credentials are not set in `.env`.")
-    st.stop()
+GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+GROQ_MAIN_MODEL = "llama-3.3-70b-versatile"
+GROQ_FAST_MODEL = "llama-3.1-8b-instant"
+BOUNCER_MODEL = GROQ_FAST_MODEL
 
-# Initialize Default Clients
-default_ai_client = genai.Client(api_key=api_key)
-supabase: Client = create_client(supabase_url, supabase_key)
 
-groq_api_key = os.environ.get("GROQ_API_KEY")
-groq_client = Groq(api_key=groq_api_key) if groq_api_key else None
-
-GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-pro-exp-02-05", "gemini-2.0-flash-lite"]
-GROQ_MODEL = "llama-3.3-70b-versatile"
-BOUNCER_MODEL = "llama-3.1-8b-instant"
-
-# ---------- UI: Bring Your Own Key ----------
+# ---------- Sidebar ----------
 with st.sidebar:
-    st.markdown("### API Settings")
+    st.markdown("### ⚙️ API Settings")
     st.markdown("Add your own key to bypass free-tier rate limits.")
     user_gemini_key = st.text_input("Your Gemini API Key (Optional)", type="password")
     if user_gemini_key:
-        st.success("Using your personal API key!")
+        st.success("Using your personal Gemini key!")
     st.divider()
 
-# ---------- Session State Initialization ----------
-# Persist the problem text so it survives st.rerun()
-if "problem_text" not in st.session_state:
-    st.session_state.problem_text = ""
+    st.markdown("### 🧠 Session Memory")
+    _lessons = st.session_state.get("lessons", [])
+    if _lessons:
+        st.caption(f"{len(_lessons)} lesson(s) saved this session.")
+        for _l in _lessons[-3:]:
+            st.caption(f"• {_l[:70]}{'...' if len(_l) > 70 else ''}")
+    else:
+        st.caption("No lessons yet. Verify a correct solution to start building your memory!")
 
-if "current_solution" not in st.session_state:
-    st.session_state.current_solution = None
 
-if "show_update_alert" not in st.session_state:
-    st.session_state.show_update_alert = False
-
-if "lesson_saved" not in st.session_state:
-    st.session_state.lesson_saved = False
-
-# Track ALL past failed attempts so the model never repeats the same mistake
-if "attempt_history" not in st.session_state:
-    st.session_state.attempt_history = []
+# ---------- Session State ----------
+_defaults = {
+    "problem_text": "",
+    "current_solution": None,
+    "current_hints": None,
+    "raw_code": "",           # Raw code extracted from solution, used in fix prompts
+    "show_update_alert": False,
+    "lesson_saved": False,
+    "last_saved_lesson_text": "",
+    "lessons": [],            # In-session lesson memory (no database, no leakage)
+    "attempt_errors": [],     # Only error strings, not full markdown solutions
+}
+for key, default in _defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 
 # ---------- Helpers ----------
-@st.cache_data(ttl=600)
-def get_past_lessons():
-    try:
-        response = supabase.table("lessons").select("lesson_text").execute()
-        return [row["lesson_text"] for row in response.data]
-    except Exception:
-        return []
-
-def save_lesson(lesson_text_val):
-    try:
-        supabase.table("lessons").insert({"lesson_text": lesson_text_val}).execute()
-    except Exception:
-        pass
+def get_lessons_context() -> str:
+    """Returns at most 5 recent lessons as a formatted string. Prevents token explosion."""
+    lessons = st.session_state.get("lessons", [])
+    if not lessons:
+        return ""
+    recent = lessons[-5:]
+    return "\n\nLESSONS FROM YOUR MEMORY (avoid repeating past mistakes):\n" + "\n".join(f"- {l}" for l in recent)
 
 
-def call_ai(prompt):
-    """The Ultimate AI Engine: Tries User Key -> 4 Gemini Models -> Groq Llama 3"""
-    
-    # 1. User Key Failsafe
-    if user_gemini_key:
+def save_lesson(lesson_text: str):
+    st.session_state.lessons.append(lesson_text)
+
+
+def call_ai(prompt: str, user_key: str = None) -> str:
+    """
+    AI Engine: User Key → Gemini chain → Groq chain (70B → 8B).
+    - User key failure gracefully falls through to the default chain.
+    - Groq auto-retries with a smaller model on token limit errors.
+    """
+    # 1. User-provided key (graceful fallback on failure — never hard crashes)
+    if user_key:
         try:
-            temp_client = genai.Client(api_key=user_gemini_key)
+            temp_client = genai.Client(api_key=user_key)
             response = temp_client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.2)
+                config=types.GenerateContentConfig(temperature=0.2),
             )
-            st.sidebar.caption(f"🤖 Answered by: `gemini-2.5-flash` (via your personal key)")
-            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text]
-            return "\n".join(output_parts) if output_parts else response.text
+            st.sidebar.caption("🤖 Answered by: `gemini-2.5-flash` (your key)")
+            parts = [p.text for c in response.candidates for p in c.content.parts if p.text]
+            return "\n".join(parts) if parts else response.text
         except Exception as e:
-            raise Exception(f"🛑 Your personal API key failed: {e}")
+            st.sidebar.warning(f"⚠️ Your personal key failed (`{str(e)[:60]}`). Falling back to shared models...")
+            # Intentional fall-through to default chain
 
-    # 2. Default Gemini Fallback Chain
+    # 2. Default Gemini chain
     last_error = None
     for model_id in GEMINI_MODELS:
-        config = types.GenerateContentConfig(temperature=0.2)
-
         try:
-            response = default_ai_client.models.generate_content(model=model_id, contents=prompt, config=config)
-            output_parts = [part.text for candidate in response.candidates for part in candidate.content.parts if part.text]
-            st.sidebar.caption(f"🤖 Answered by: `{model_id}`")
-            return "\n".join(output_parts) if output_parts else response.text
-
-        except Exception as e:
-            error_str = str(e)
-            last_error = e
-
-            if "404" in error_str or "NOT_FOUND" in error_str:
-                st.sidebar.caption(f"⚠️ `{model_id}` not found/supported, skipping...")
-                continue
-
-            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                st.sidebar.caption(f"⚡ `{model_id}` rate-limited, trying next model...")
-                continue
-            else:
-                st.sidebar.caption(f"❌ `{model_id}` failed, trying next model...")
-                continue
-    
-    # 3. Groq (Llama-3) Final Fallback
-    if groq_client:
-        st.sidebar.caption(f"🔄 Gemini models exhausted. Seamlessly switching to Groq...")
-        try:
-            system_prompt = "You are an elite senior LeetCode tutor. You MUST provide extremely detailed, hand-holding, beginner-friendly explanations. Use step-by-step examples. Explicitly define EVERY technical term. Your code MUST be perfectly optimal and 100% bug-free on the first try. Take a deep breath and think step-by-step before answering."
-            chat_completion = groq_client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                model=GROQ_MODEL,
-                temperature=0.2,
+            response = _default_gemini.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.2),
             )
-            st.sidebar.caption(f"🤖 Answered by: `{GROQ_MODEL}` (Groq Backup)")
-            return chat_completion.choices[0].message.content
-        except Exception as groq_e:
-            # If 70b fails due to token limits, try the lighter, faster 8b model
-            if "413" in str(groq_e) or "Request too large" in str(groq_e) or "429" in str(groq_e):
-                try:
-                    st.sidebar.caption(f"⚡ Groq 70b limit reached, falling back to 8b...")
-                    chat_completion = groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": prompt[:15000]} # Truncate prompt safely
-                        ],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.2,
-                    )
-                    st.sidebar.caption(f"🤖 Answered by: `llama-3.1-8b-instant` (Groq Backup)")
-                    return chat_completion.choices[0].message.content
-                except Exception as inner_e:
-                    last_error = inner_e
+            parts = [p.text for c in response.candidates for p in c.content.parts if p.text]
+            st.sidebar.caption(f"🤖 Answered by: `{model_id}`")
+            return "\n".join(parts) if parts else response.text
+        except Exception as e:
+            last_error = e
+            err = str(e)
+            if "404" in err or "NOT_FOUND" in err:
+                st.sidebar.caption(f"⚠️ `{model_id}` unavailable, skipping...")
+            elif "429" in err or "RESOURCE_EXHAUSTED" in err:
+                st.sidebar.caption(f"⚡ `{model_id}` rate-limited, trying next...")
             else:
-                last_error = groq_e
-            
-    # 4. Total Failure Failsafe
+                st.sidebar.caption(f"❌ `{model_id}` error, trying next...")
+            continue
+
+    # 3. Groq chain — 70B first, auto-downgrade to 8B on token limit errors
+    if _groq_client:
+        st.sidebar.caption("🔄 Gemini exhausted. Switching to Groq backup...")
+        sys_msg = "You are an expert Python developer and CS tutor. Be thorough, accurate, and beginner-friendly."
+        groq_attempts = [
+            (GROQ_MAIN_MODEL, prompt),
+            (GROQ_FAST_MODEL, prompt[:15000]),  # Safely truncated for smaller model
+        ]
+        for groq_model, groq_prompt in groq_attempts:
+            try:
+                completion = _groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user", "content": groq_prompt},
+                    ],
+                    model=groq_model,
+                    temperature=0.2,
+                )
+                st.sidebar.caption(f"🤖 Answered by: `{groq_model}` (Groq)")
+                return completion.choices[0].message.content
+            except Exception as e:
+                last_error = e
+                err = str(e)
+                if "413" in err or "too large" in err.lower() or "429" in err:
+                    st.sidebar.caption(f"⚡ `{groq_model}` limit hit, trying smaller model...")
+                    continue
+                break  # Non-retriable error
+
+    # 4. Total failure — honest message about what actually failed
+    groq_note = (
+        "Groq backup is unavailable (no API key configured)."
+        if not _groq_client
+        else "Groq backup is also rate-limited."
+    )
     raise Exception(
-        f"🛑 Extremely High Traffic! Both the primary (Gemini) and backup (Groq) servers are currently maxed out.\n\n"
-        f"To continue instantly, please paste your own Gemini API key into the sidebar.\n"
-        f"(Debug Info: {str(last_error)[:100]})"
+        f"🛑 All AI providers temporarily unavailable. Gemini is rate-limited and {groq_note}\n\n"
+        f"Paste your own Gemini API key into the sidebar to continue instantly.\n"
+        f"(Debug: {str(last_error)[:120]})"
     )
 
 
+def check_guardrail(text: str, user_key: str = None) -> bool:
+    """Checks if the input is actually a coding-related problem."""
+    if len(text.strip()) < 10:
+        return False
+    prompt = (
+        "You are a strict binary classifier. Reply with ONLY the word 'YES' or 'NO' — nothing else.\n\n"
+        "Is the following input a coding problem, algorithm question, programming assignment, "
+        "code snippet, or technical debugging task?\n\n"
+        "Answer NO for: general chat, recipes, essays, math riddles, or anything unrelated to software/programming.\n\n"
+        f"Input: {text[:600]}"
+    )
+    try:
+        if _groq_client:
+            r = _groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=BOUNCER_MODEL,
+                temperature=0.0,
+                max_tokens=5,
+            )
+            return "YES" in r.choices[0].message.content.upper()
+        else:
+            return "YES" in call_ai(prompt, user_key).upper()
+    except Exception:
+        return True  # Fail open if guardrail itself crashes
+
+
 # ---------- UI ----------
-
-# Use a callback to persist the text area value into session_state
 def _sync_problem():
-    st.session_state.problem_text = st.session_state._problem_widget
+    """Sync text area → session state. Clears stale results when the problem changes."""
+    new_text = st.session_state._problem_widget
+    if new_text != st.session_state.problem_text:
+        st.session_state.problem_text = new_text
+        st.session_state.current_solution = None
+        st.session_state.current_hints = None
+        st.session_state.raw_code = ""
+        st.session_state.attempt_errors = []
+        st.session_state.lesson_saved = False
 
+
+st.title("CodeUnfold")
+st.markdown(
+    "Paste any coding problem below. Get **hints** to solve it yourself, "
+    "or **reveal the full solution** for a complete step-by-step lesson."
+)
 
 st.text_area(
     "Paste your coding problem here:",
-    height=200,
+    height=180,
     key="_problem_widget",
     value=st.session_state.problem_text,
     on_change=_sync_problem,
 )
 
-# Convenience alias
 problem_text = st.session_state.problem_text
 
 col1, col2 = st.columns(2)
@@ -343,428 +340,317 @@ with col1:
 with col2:
     solve_button = st.button("🔍 Reveal Solution", use_container_width=True, type="primary")
 
-# ---------- App Logic ----------
 
-def check_guardrail(text):
-    """Fast guardrail check to ensure input is coding-related before wasting tokens."""
-    # Fast regex pre-check for extremely short or obviously non-code input
-    if len(text.strip()) < 10 and not re.search(r'[\{\}\(\)\[\];=]', text):
-        return False
-        
-    guardrail_prompt = f"Is the following text a valid coding problem, programming concept, or code snippet? Answer with EXACTLY 'YES' or 'NO'. Text: {text}"
-    try:
-        if groq_client:
-            chat_completion = groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": guardrail_prompt}],
-                model=BOUNCER_MODEL,
-                temperature=0.0,
-            )
-            response = chat_completion.choices[0].message.content
-        else:
-            response = call_ai(guardrail_prompt)
-        return "YES" in response.upper()
-    except:
-        return True # Failsafe open if API crashes
-
+# ---------- Hint Logic ----------
 if hint_button and problem_text:
-    # 1. Guardrail Check
-    with st.spinner("👀 Checking input..."):
-        is_valid = check_guardrail(problem_text)
-        
-    if not is_valid:
-        st.warning("That doesn't appear to be a valid coding problem. Please paste a valid programming question, assignment, or code snippet.")
-        st.stop()
+    with st.spinner("Checking input..."):
+        if not check_guardrail(problem_text, user_gemini_key):
+            st.session_state.current_solution = None
+            st.session_state.current_hints = None
+            st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
+            st.stop()
 
-    # Reset solution state for a new problem
-    st.session_state.current_solution = None
-    st.session_state.attempt_history = []
-    st.session_state.lesson_saved = False
-
-    past_lessons = get_past_lessons()
-    lessons_context = ""
-    if past_lessons:
-        lessons_context = "\n\nCRITICAL PAST LESSONS TO REMEMBER:\n" + "\n".join([f"- {l}" for l in past_lessons])
-
-    with st.spinner("Analyzing problem and generating beginner-friendly hints..."):
-        prompt = f"""You are a LeetCode Grandmaster and patient tutor. A student wants hints to solve this problem themselves — DO NOT give the final code.
-
-Use this EXACT structure. Write in **short paragraphs**, plain language, and define every technical term.
-
----
+    lessons_context = get_lessons_context()
+    hint_prompt = f"""You are a LeetCode Grandmaster and patient tutor. The student wants to solve this themselves — give hints ONLY. No code whatsoever.
 
 ## 💭 1. What's This Problem Really Asking?
+Restate in simpler terms. Point out the key observation without revealing the approach.
 
-Restate the problem in simpler terms. Point out the key observation that leads to the solution, but don't reveal the full approach.
-
----
-
-## 🧠 2. Concepts You'll Need *(explain each from scratch)*
-
-List the data structures and techniques relevant to this problem. For each one:
+## 🧠 2. Concepts You'll Need
+For each relevant data structure or technique:
 - **What is it?** Simple definition with a real-world analogy
-- **Why might it help here?** A hint about how it connects
+- **Why might it help here?** A hint at the connection
 
----
-
-## 🪜 3. Step-by-Step Thinking Path *(no code, no pseudo-code)*
-
-Give 3-5 numbered hints that build toward the solution:
-
-1. A gentle nudge about the first thing they should think about
-2. A hint about the key insight or pattern
-3. What data structure naturally fits and why
-4. How to handle edge cases
-5. What to optimize for (time/space)
-
-Each hint should be a **question or thought provoker**, not an instruction. The student should still have to figure out the implementation.
-
----
+## 🪜 3. Step-by-Step Thinking Path (no code, no pseudo-code)
+3–5 numbered hints building toward the solution. Each must be a question or thought-provoker, not an instruction.
 
 ## ⚠️ 4. Common Pitfalls
-
-1-2 mistakes beginners often make with this type of problem. Warn them without showing how to avoid it.
-
+1–2 mistakes beginners often make. Warn without revealing how to avoid them.
 {lessons_context}
 
----
-
-**Remember:** DO NOT write any code. DO NOT give the full algorithm. The student wants to learn by doing.
-"""
-        try:
-            result = call_ai(prompt)
-            st.markdown("### 💡 Hints & Strategy")
-            st.write(result)
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-
-elif solve_button and problem_text:
-    # 1. Guardrail Check
-    with st.spinner("👀 Checking input..."):
-        is_valid = check_guardrail(problem_text)
-        
-    if not is_valid:
-        st.warning("That doesn't appear to be a valid coding problem. Please paste a valid programming question, assignment, or code snippet.")
-        st.stop()
-
-    # Reset for a fresh solve
-    st.session_state.attempt_history = []
-
-    past_lessons = get_past_lessons()
-    lessons_context = ""
-    if past_lessons:
-        lessons_context = "\n\nCRITICAL PAST LESSONS TO AVOID MISTAKES:\n" + "\n".join([f"- {l}" for l in past_lessons])
-
-    with st.spinner("🤖 Initializing AI solvers..."):
-        standard_prompt = f"""You are a LeetCode Grandmaster and an expert Python developer. A student has given up on a coding problem.
-        
-        MANDATORY SELF-CHECK PROCESS:
-        You MUST use a <scratchpad> block at the very beginning of your response to dry-run your algorithm against 3 tricky edge cases.
-        
-        RULES:
-        1. Provide the CORRECT, fully working code solution. 
-        2. The code MUST be the most efficient, optimal, and concise way to solve the problem (Pythonic style). Do not overcomplicate it.
-        3. Format the response beautifully: use clear headings, short paragraphs, and lots of whitespace.
-        4. Explain the code step-by-step using simple language for a beginner.
-        5. Explicitly define EVERY technical term you use.
-        6. Show your verification: include a brief "Verification" section where you trace through one example to prove it works.{lessons_context}
-        
-        Problem:
-        {problem_text}
-        """
-        
-        try:
-            final_prompt = standard_prompt
-            
-            if groq_client:
-                with st.spinner("🧠 Agentic Generator: Groq 70B is solving the problem optimally (0 Gemini quota cost)..."):
-                    generator_prompt = f"""You are an elite competitive programmer. Solve this coding problem optimally.
-                    
-                    Problem:
-                    {problem_text}
-                    
-                    RULES:
-                    1. Output ONLY the raw, perfect Python code. No explanations, no text, no pleasantries. Just the code.
-                    2. PERFORMANCE DIRECTIVE: Your absolute highest priority is Time and Space Complexity. You MUST identify and implement the mathematically optimal approach (e.g., Two Pointers, Sliding Window, Dynamic Programming, Hash Maps).
-                    3. BIG-O TARGET: Aim for O(1) space if possible, and the lowest possible O(N) time complexity. Your solution must be designed to beat 99% of submissions on execution speed.
-                    4. CORRECTNESS: Accuracy is still mandatory. Do not sacrifice edge-case handling for speed. The code must be flawless.
-                    """
-                    chat_completion = groq_client.chat.completions.create(
-                        messages=[{"role": "user", "content": generator_prompt}],
-                        model=GROQ_MODEL,
-                        temperature=0.1,
-                    )
-                    raw_code = chat_completion.choices[0].message.content.strip()
-                    
-                final_prompt = f"""You are a world-class computer science tutor — patient, thorough, and passionate about teaching. A student has given up on a problem and needs you to hand-hold them from zero to full understanding.
-
-I have already solved the problem perfectly. Here is the exact Python code:
-
-```python
-{raw_code}
-```
 Problem: {problem_text}
 
-Teach this solution using the EXACT structure below. Write in short paragraphs, plain language, and define every technical term like it's the first time the student has heard it. Avoid long blocks of text — break things up.
+CRITICAL: Do NOT write any code or reveal the full algorithm. Hints only."""
+
+    try:
+        with st.spinner("Thinking through hints..."):
+            result = call_ai(hint_prompt, user_gemini_key)
+        st.session_state.current_hints = result
+        st.session_state.current_solution = None
+        st.rerun()
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+elif hint_button and not problem_text:
+    st.warning("Paste a problem description above to begin.")
+
+
+# ---------- Solve Logic ----------
+elif solve_button and problem_text:
+    with st.spinner("Checking input..."):
+        if not check_guardrail(problem_text, user_gemini_key):
+            st.session_state.current_solution = None
+            st.session_state.current_hints = None
+            st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
+            st.stop()
+
+    st.session_state.attempt_errors = []
+    st.session_state.lesson_saved = False
+    lessons_context = get_lessons_context()
+
+    # Single unified prompt — the AI writes the code AND teaches it in one shot.
+    # This eliminates the broken 2-step pipeline where Groq wrote code and
+    # Gemini was told to teach it as "perfect" without verification.
+    solve_prompt = f"""You are a world-class computer science tutor and expert Python developer.
+
+A student has given up on this problem. Your job is two things in one response:
+1. Write the most optimal, clean, Pythonic Python solution
+2. Teach that exact solution from scratch in beginner-friendly language
+
+IMPORTANT: Write the code yourself first, verify it mentally against at least 2 edge cases, then teach it. Be confident the code is correct before presenting it.
+
+Follow this EXACT structure:
 
 ## 📌 1. What Are We Solving?
-Restate the problem in one plain-English sentence. Then answer:
-
-- **Input:** What are we given? (data type, range, an example value)
+Restate in one plain-English sentence. Then:
+- **Input:** What are we given? (type, range, example)
 - **Output:** What must we return?
-- **Constraints:** What do the limits tell us? (e.g., "n ≤ 10⁵ means O(n²) will be too slow")
+- **Constraints:** What do the limits tell us? (e.g., n ≤ 10⁵ means O(n²) is too slow)
 
-Keep this section short — 3–4 lines max. Just set the stage.
+Keep this to 3–4 lines max.
 
-## 🧱 2. The Core Concepts (Explained From Scratch)
-For each data structure, algorithm, or technique used in the solution, explain it before we touch any code.
+## 🧱 2. The Core Concepts
+For each data structure, algorithm, or technique in your solution:
+- **What is it?** Simple definition + real-world analogy
+- **Why here?** Why this concept fits THIS specific problem
+- **Visualize it:** Help the student picture it
 
-Structure each concept like this:
-- **What is it?** A simple definition with a real-world analogy. (e.g., "A hashmap is like a coat check — you hand in your coat (the key) and get a ticket (the value) to find it instantly later.")
-- **Why do we need it here?** Why does THIS problem specifically need THIS concept?
-- **Visualize it:** Describe it in words so the student can picture it. (e.g., "Imagine two pointers starting at opposite ends of the array, moving toward each other...")
-
-If there are multiple concepts, order them so each one builds on the last. Keep explanations 3–5 sentences per concept. No more.
+Order concepts so each builds on the last. Max 4–5 sentences per concept.
 
 ## 🪜 3. Building the Solution (No Code Yet)
-Walk through the algorithm in plain English. Use numbered steps. Each step is one clear thought.
-
-1. First, we ...
-2. Then, for each element, we ...
-3. If the condition is met, we ...
-4. After the loop, we return ...
-
-At every decision point, pause and explain:
-- "Why do it this way and not the other way?"
-- "What would break if we skipped this step?"
-
-End this section with a 2–3 line pseudo-code summary so they see the full flow before reading real syntax.
+Walk through the algorithm in plain English. Numbered steps, one idea per step. At each decision point explain WHY this way and not another. End with 2–3 line pseudo-code.
 
 ## 🐍 4. The Code
-(present the exact code here — no changes)
+Present your complete, optimal Python solution. It MUST be syntactically correct, properly indented, and formatted in a ```python code block.
 
 ## 🔬 5. Line-by-Line Breakdown
-This is the most important section. Take 1–3 lines at a time and explain:
-
+Take 1–3 lines at a time:
 ```python
-# the code chunk
+# the lines
 ```
-- **What it does:** One sentence in plain language
-- **Syntax:** Why this keyword? What does this function return? What does this operator mean?
-- **Variable state:** What does each variable hold AFTER this line runs?
-- **Watch out:** What might a beginner misunderstand here?
+- **What it does:** One plain-language sentence
+- **Variable state:** What each variable holds after this line
+- **Watch out:** Common beginner misunderstanding
 
-Repeat this until every single line has been covered.
+Cover every meaningful line.
 
 ## ✅ 6. Trace Through an Example
-Pick the simplest meaningful input. Walk through the code step-by-step using a table:
-
-| Step | Code | Variable State | Why It Happens |
+Pick the simplest meaningful input. Trace step-by-step:
+| Step | Code | Variable State | Why |
 |---|---|---|---|
-| 1 | `x = 5` | x = 5 | We set x to the first element |
-| 2 | `if x > 0:` | x = 5, condition = True | 5 is greater than 0, so we enter the block |
-| ... | ... | ... | ... |
 
-Show the full journey from input → output so the student can visualize exactly how data flows.
+Show the full journey from input → output.
 
-## 📊 7. Complexity in Simple Terms
-- **Time Complexity:** Why is it O(...)? In plain English: "If the input size doubles, the runtime grows by roughly..."
-- **Space Complexity:** Where does the extra memory come from? Does the function use extra arrays, recursion, or does it modify in-place?
+## 📊 7. Complexity
+- **Time:** Why O(...)? Plain English.
+- **Space:** Where does the memory come from?
 
 ## 💡 8. Key Takeaway
-One sentence the student should remember for similar problems. (e.g., "When you need to compare elements from both ends of an array, think two pointers.")
-
+One sentence for similar future problems.
 {lessons_context}
-"""
-            
-            # Use the fallback chain to process whichever prompt we settled on
-            if groq_client:
-                with st.spinner("🤖 Agentic Tutor: Gemini is creating a beautiful step-by-step lesson..."):
-                    final_result = call_ai(final_prompt)
-            else:
-                with st.spinner("🤖 Agentic Draft: Generating initial solution with Gemini..."):
-                    final_result = call_ai(final_prompt)
-                
-            # Clean out internal thought processes
-            final_result = re.sub(r"<scratchpad>.*?</scratchpad>", "", final_result, flags=re.IGNORECASE | re.DOTALL)
-            
-            st.session_state.current_solution = final_result.strip()
-            st.session_state.attempt_history = [{"role": "solution", "content": final_result.strip()}]
-            st.session_state.show_update_alert = False
-            st.session_state.lesson_saved = False
-            st.rerun()
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
 
-elif (hint_button or solve_button) and not problem_text:
-    st.warning("Paste a problem description above to begin")
+Problem:
+{problem_text}"""
 
-# ---------- Display Solution + Feedback Loop ----------
+    try:
+        with st.spinner("Generating your personalized lesson..."):
+            result = call_ai(solve_prompt, user_gemini_key)
+
+        # Strip any internal scratchpad thinking
+        result = re.sub(r"<scratchpad>.*?</scratchpad>", "", result, flags=re.IGNORECASE | re.DOTALL)
+
+        # Extract raw code and store separately — this is what fix prompts will use,
+        # NOT the 600-line markdown lesson (which was the original bug)
+        code_match = re.search(r"```python\n(.*?)```", result, re.DOTALL)
+        st.session_state.raw_code = code_match.group(1).strip() if code_match else ""
+
+        st.session_state.current_solution = result.strip()
+        st.session_state.current_hints = None
+        st.session_state.show_update_alert = False
+        st.session_state.lesson_saved = False
+        st.rerun()
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+elif solve_button and not problem_text:
+    st.warning("Paste a problem description above to begin.")
+
+
+# ---------- Display Hints ----------
+if st.session_state.current_hints and not st.session_state.current_solution:
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(f"**Problem:** {problem_text[:80]}{'...' if len(problem_text) > 80 else ''}")
+    with st.chat_message("assistant", avatar="🤖"):
+        st.markdown("### 💡 Hints & Strategy")
+        st.write(st.session_state.current_hints)
+
+
+# ---------- Display Solution + Fix Loop ----------
 if st.session_state.current_solution:
 
-    # 1. User Message Bubble (The Problem)
     with st.chat_message("user", avatar="👤"):
         st.markdown(f"**Problem:** {problem_text[:80]}{'...' if len(problem_text) > 80 else ''}")
 
-    # 2. Assistant Message Bubble (The Solution)
     with st.chat_message("assistant", avatar="🤖"):
-        # Always scroll to top when a solution loads so the user sees the start
         st.html('<script>window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"});</script>')
-        
+
         if st.session_state.show_update_alert:
-            st.success("The solution was updated based on your error report")
+            st.success("Solution updated based on your error report.")
             st.session_state.show_update_alert = False
 
         st.markdown("### Solution Breakdown")
         st.write(st.session_state.current_solution)
 
-        attempt_count = len([a for a in st.session_state.attempt_history if a["role"] == "error"])
-        if attempt_count > 0:
-            st.caption(f"🔄 This solution has been revised {attempt_count} time(s) based on your feedback.")
+        error_count = len(st.session_state.attempt_errors)
+        if error_count > 0:
+            st.caption(f"🔄 Revised {error_count} time(s) based on your feedback.")
 
-        # --- Collapsible Save to Memory ---
+        # --- Save to Memory ---
         if st.session_state.get("lesson_saved", False):
-            st.success("✅ Saved to AI memory! I will remember this trick for future problems.", icon="🧠")
+            st.success("✅ Saved to session memory!", icon="🧠")
             if st.button("Undo (Remove from Memory)"):
-                try:
-                    supabase.table("lessons").delete().eq("lesson_text", st.session_state.get("last_saved_lesson_text", "")).execute()
-                    get_past_lessons.clear() # Clear cache
-                except:
-                    pass
+                last = st.session_state.get("last_saved_lesson_text", "")
+                if last in st.session_state.lessons:
+                    st.session_state.lessons.remove(last)
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
-            show_save = st.toggle("💾 Save this approach to memory", key="show_save_toggle")
+            # Problem-specific key prevents toggle from staying "on" across different problems
+            toggle_key = f"save_toggle_{abs(hash(problem_text)) % 1_000_000}"
+            show_save = st.toggle("💾 Save this approach to memory", key=toggle_key)
             if show_save:
-                proof_text = st.text_area("Paste your actual technical success output here (e.g., 'Accepted', 'Passed 10/10'):", height=68)
-                
+                proof_text = st.text_area(
+                    "Paste your execution output (e.g., 'Accepted', 'Passed 57/57 test cases'):",
+                    height=68,
+                    key="proof_input",
+                )
                 if st.button("Verify & Save", use_container_width=True, type="primary"):
-                    if not proof_text or len(proof_text) < 3:
+                    if not proof_text or len(proof_text.strip()) < 3:
                         st.error("Please provide actual proof of execution.")
-                    elif not groq_client:
-                        st.error("Groq API key is required to run the Bouncer AI. Please add it to your environment variables.")
+                    elif not _groq_client:
+                        st.error("Groq API key required for Bouncer AI. Add GROQ_API_KEY to your environment.")
                     else:
-                        with st.spinner("🤖 Bouncer AI is verifying your proof (costs 0 Gemini quota)..."):
-                            bouncer_prompt = f"""You are a strict Bouncer AI. A student claims the AI solution worked.
-                            Their proof of execution is:
-                            "{proof_text}"
-
-                            1. If this proof is just a casual comment or troll (e.g. 'it worked', 'thanks', '123', 'yes'), you MUST output exactly: REJECT
-                            2. If it looks like legitimate technical execution output (e.g. 'Accepted', 'Passed', 'Runtime', 'exit code', '0 errors'), then extract a 1-sentence generalized lesson about WHY the approach works well based on the problem and solution below. Wrap it EXACTLY in <LESSON> and </LESSON> tags.
-
-                            Problem:
-                            {problem_text}
-
-                            Solution:
-                            {st.session_state.current_solution}
-                            """
+                        # Truncate to safely fit the 8B model's context window
+                        safe_code = (st.session_state.raw_code or st.session_state.current_solution)[:3000]
+                        bouncer_prompt = (
+                            f"You are a strict Bouncer AI. A student claims an AI solution worked.\n"
+                            f'Their proof: "{proof_text[:500]}"\n\n'
+                            f"Rules:\n"
+                            f"1. If the proof is a casual comment or troll (e.g., 'it worked', 'yes', '123'), output exactly: REJECT\n"
+                            f"2. If the proof looks like real execution output (e.g., 'Accepted', 'Passed', 'Runtime: 42ms', 'exit code 0'), "
+                            f"extract a 1-sentence generalized lesson about WHY this approach works well. Wrap it in <LESSON> tags.\n\n"
+                            f"Problem: {problem_text[:800]}\n"
+                            f"Solution code:\n```python\n{safe_code}\n```"
+                        )
+                        with st.spinner("Bouncer AI verifying..."):
                             try:
-                                chat_completion = groq_client.chat.completions.create(
+                                r = _groq_client.chat.completions.create(
                                     messages=[{"role": "user", "content": bouncer_prompt}],
                                     model=BOUNCER_MODEL,
                                     temperature=0.1,
                                 )
-                                bouncer_reply = chat_completion.choices[0].message.content.strip()
-                                
-                                if "REJECT" in bouncer_reply:
-                                    st.error("🛑 Bouncer AI Rejected: That doesn't look like actual technical execution output. Nice try! 😉")
+                                reply = r.choices[0].message.content.strip()
+                                if "REJECT" in reply:
+                                    st.error("🛑 Bouncer Rejected: That doesn't look like real execution output. Nice try! 😉")
                                 else:
-                                    lesson_match = re.search(r"<LESSON>(.*?)</LESSON>", bouncer_reply, re.IGNORECASE | re.DOTALL)
-                                    if lesson_match:
-                                        lesson_text = "✅ PROVEN: " + lesson_match.group(1).strip()
-                                    else:
-                                        clean_reply = bouncer_reply.replace("REJECT", "").strip()
-                                        lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
-                                    
-                                    save_lesson(lesson_text)
-                                    get_past_lessons.clear() # Clear cache
-                                    st.session_state.last_saved_lesson_text = lesson_text
+                                    m = re.search(r"<LESSON>(.*?)</LESSON>", reply, re.IGNORECASE | re.DOTALL)
+                                    lesson = "✅ PROVEN: " + (
+                                        m.group(1).strip() if m
+                                        else (reply.replace("REJECT", "").strip() or "Solution approach verified working.")
+                                    )
+                                    save_lesson(lesson)
+                                    st.session_state.last_saved_lesson_text = lesson
                                     st.session_state.lesson_saved = True
                                     st.balloons()
                                     st.rerun()
                             except Exception as e:
-                                st.error(f"Bouncer AI encountered an error: {e}")
+                                st.error(f"Bouncer AI error: {e}")
 
-    # Floating input at the bottom of the screen
-    error_text = st.chat_input("Paste your error output to fix the solution")
+    # --- Error Fix Section ---
+    # Using an expander + button instead of st.chat_input, which created a
+    # misleading "chatbot" mental model and floated persistently on screen.
+    with st.expander("🐛 Got an error? Click here to fix the solution"):
+        st.caption("Paste the exact error message or wrong output from your testing environment.")
+        error_input = st.text_area(
+            "Error output:",
+            height=120,
+            key="error_input_box",
+            label_visibility="collapsed",
+        )
+        if st.button("🔧 Fix My Solution", type="primary", use_container_width=True):
+            if not error_input.strip():
+                st.warning("Paste your error output first.")
+            else:
+                st.session_state.attempt_errors.append(error_input.strip())
+                # Cap at last 3 errors to keep the fix prompt lean
+                st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
 
-    if error_text:
-        # Record this failed attempt in history
-        st.session_state.attempt_history.append({"role": "error", "content": error_text})
-        
-        # Truncate history to last 6 entries (3 cycles) to prevent token overflow
-        st.session_state.attempt_history = st.session_state.attempt_history[-6:]
+                error_history = "\n".join(
+                    f"Error #{i + 1}:\n{e}" for i, e in enumerate(st.session_state.attempt_errors)
+                )
+                lessons_context = get_lessons_context()
 
-        # Build a full history of all past attempts so the model NEVER repeats itself
-        history_block = ""
-        for i, entry in enumerate(st.session_state.attempt_history):
-            if entry["role"] == "solution":
-                history_block += f"\n--- ATTEMPT {i // 2 + 1} (YOUR PREVIOUS SOLUTION) ---\n{entry['content']}\n"
-            elif entry["role"] == "error":
-                history_block += f"\n--- STUDENT ERROR REPORT ---\n{entry['content']}\n"
+                # Send only the raw code — NOT the 600-line markdown explanation
+                code_to_fix = st.session_state.raw_code or "(original code not available — infer from the problem)"
 
-        past_lessons = get_past_lessons()
-        lessons_context = ""
-        if past_lessons:
-            lessons_context = "\n\nPAST LESSONS FROM YOUR MEMORY:\n" + "\n".join([f"- {l}" for l in past_lessons])
+                fix_prompt = f"""You are an expert Python debugger and LeetCode Grandmaster.
 
-        with st.spinner("Analyzing error, fixing solution, and saving lesson to database..."):
-            fix_prompt = f"""You are a LeetCode Grandmaster and an expert Python developer. You have been trying to solve a problem for a student, but your previous solutions FAILED.
+PROBLEM:
+{problem_text}
 
-            THE PROBLEM:
-            {problem_text}
-            
-            FULL HISTORY OF ALL YOUR ATTEMPTS AND THE STUDENT'S ERROR REPORTS:
-            {history_block}
-            
-            CRITICAL DEBUGGING INSTRUCTIONS:
-            1. You have ALREADY tried and FAILED with the approaches above. DO NOT repeat any of them.
-            2. Carefully analyze EACH error report. Understand the ROOT CAUSE of every failure.
-            3. Design a COMPLETELY NEW approach if the previous logic was fundamentally flawed, or make a PRECISE, targeted fix if it was a small bug.
-            4. Before outputting your new solution, mentally trace through at least 2 test cases (including an edge case) to verify it works.
+CODE THAT FAILED:
+```python
+{code_to_fix}
+```
 
-            RESPONSE FORMAT (you MUST follow this exactly):
+ALL ERRORS SO FAR (do NOT repeat these mistakes):
+{error_history}
 
-            ## 🔍 What Went Wrong
-            Explain what was wrong with the previous solution in simple language.
+INSTRUCTIONS:
+1. Identify the root cause of each error above.
+2. Do NOT reuse any previously failed approach.
+3. Write a fully correct, optimal, Pythonic solution.
+4. Mentally trace through at least 2 test cases (including an edge case) before responding.
 
-            ## ✅ Corrected Solution
-            Provide the CORRECT, fully working code. Keep it as simple, efficient, and Pythonic as possible.
+RESPONSE FORMAT:
 
-            ## 📖 Step-by-Step Explanation
-            Explain the FULL corrected code step-by-step as if the student is a complete beginner.
-            - Use short paragraphs and bullet points.
-            - Explicitly define EVERY technical term you use (e.g., if you say 'O(n)' or 'hashmap', explain what that means simply).
-            - Do NOT skip steps or assume prior knowledge.
+## 🔍 What Went Wrong
+Clear explanation of the bug(s) in plain language.
 
-            ## ✔️ Verification
-            Trace through at least one example input to prove the code works.
+## ✅ Corrected Solution
+The complete, working Python code in a ```python block.
 
-            ## 🧠 Lesson Learned
-            A generalized takeaway from this mistake.{lessons_context}
-            
-            CRITICAL REQUIREMENT:
-            At the very end of your response, you MUST include the generalized lesson wrapped in <LESSON> tags. 
-            For example:
-            <LESSON>When iterating backwards through an array in Python, remember that the stop index in `range()` is exclusive, so use -1 instead of 0.</LESSON>
-            """
-            try:
-                new_text = call_ai(fix_prompt)
+## 📖 What Changed and Why
+Explain the fix step by step for a beginner.
 
-                # Extract and display the proposed lesson (without saving automatically)
-                lesson_match = re.search(r"<LESSON>(.*?)</LESSON>", new_text, re.IGNORECASE | re.DOTALL)
-                if lesson_match:
-                    lesson_text = lesson_match.group(1).strip()
-                    new_text = re.sub(
-                        r"<LESSON>.*?</LESSON>",
-                        f"\n\n**💡 Proposed Lesson (Test the code first to verify!):**\n{lesson_text}",
-                        new_text,
-                        flags=re.IGNORECASE | re.DOTALL,
-                    )
+## ✔️ Verification
+Trace through one example to prove the fix works.
 
-                # Add this new solution to the history
-                st.session_state.attempt_history.append({"role": "solution", "content": new_text})
-                st.session_state.current_solution = new_text
-                st.session_state.show_update_alert = True
-                st.rerun()
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+## 💡 Proposed Lesson
+A 1-sentence generalized takeaway. Label it as unverified — the student should test first.
+{lessons_context}"""
+
+                try:
+                    with st.spinner("Analyzing error and generating fix..."):
+                        new_text = call_ai(fix_prompt, user_gemini_key)
+
+                    # Extract and store the new raw code for future fix prompts
+                    new_code_match = re.search(r"```python\n(.*?)```", new_text, re.DOTALL)
+                    if new_code_match:
+                        st.session_state.raw_code = new_code_match.group(1).strip()
+
+                    st.session_state.current_solution = new_text
+                    st.session_state.show_update_alert = True
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
