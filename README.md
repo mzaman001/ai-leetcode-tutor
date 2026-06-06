@@ -1,36 +1,36 @@
 # 🤖 CodeUnfold
 
 ![UI Showcase](https://img.shields.io/badge/UI-AMOLED_Chat-black?style=for-the-badge)
-![Tech Stack](https://img.shields.io/badge/Tech-Python_|_Streamlit_|_Supabase-blue?style=for-the-badge)
-![AI Models](https://img.shields.io/badge/AI-Groq_70B_|_Gemini_Flash-orange?style=for-the-badge)
+![Tech Stack](https://img.shields.io/badge/Tech-Python_|_Streamlit-blue?style=for-the-badge)
+![AI Models](https://img.shields.io/badge/AI-Groq_|_Gemini-orange?style=for-the-badge)
 
-A highly advanced, multi-agent AI coding tutor built to solve complex LeetCode problems optimally and teach them step-by-step using a literal "Hand-Holding" pair-programmer format.
+A highly advanced AI coding tutor built to solve complex LeetCode problems optimally and teach them step-by-step using a literal "Hand-Holding" pair-programmer format.
 
-Unlike standard LLM wrappers, this application utilizes a custom **Agentic Generator-Tutor Pipeline** designed to improve algorithmic accuracy, and aims to reduce hallucinations through agent specialization and verification layers.
+Unlike standard LLM wrappers, this application utilizes a **Unified Agentic Tutor Pipeline** designed to guarantee algorithmic accuracy by having the AI mentally verify code *before* it begins teaching it.
 
 ---
 
 ## 🏗️ The Multi-Agent Architecture
 
-This project solves the famous AI "Blind Leading the Blind" problem by separating the algorithmic logic generation from the user-facing persona.
+This project solves the famous AI "Blind Leading the Blind" problem through robust guardrails and strict pedagogical prompting.
 
-### 1. The Agentic Generator (Groq Llama 3 70B)
-When a problem is submitted, it is first routed to Groq's Llama 3 70B model via a high-speed inference API. The model is given a **constrained generation prompt**: it aims to identify the mathematically optimal approach (e.g., O(1) space, O(N) time) and output *highly optimized Python code* without any explanations. This significantly increases first-shot algorithmic accuracy.
+### 1. The Agentic Tutor (Primary)
+When a problem is submitted, the AI (Gemini or Groq) is forced into a strict pedagogical structure. It must first write the optimal code and then immediately break it down line-by-line. This unified approach prevents the AI from trying to teach incorrect code.
 
-### 2. The Agentic Tutor (Gemini 2.5 Flash)
-Once the optimized solution is generated, it is passed internally to Gemini 2.5 Flash. Gemini is strictly isolated from algorithmic generation and is instructed purely to act as a specialized teaching agent. It executes a **Line-by-Line Code Breakdown**, explaining the exact mechanics of the syntax, variables, and logic behind the provided solution.
+### 2. The Auto-Correction Loop
+If the solution fails in your testing environment, you can paste the error output. The AI reviews the **exact raw code** that failed along with your error string, surgically patching the bug while leveraging previous debugging context to avoid recurring errors.
 
-### 3. The "Bouncer" AI & Long-Term Memory (Supabase RAG)
-If a user learns a new trick from a failed attempt, they can submit their terminal output proof. A strict "Bouncer" AI (Llama 3.1 8B) verifies the execution proof to prevent trolls. If verified, the AI extracts a generalized lesson and saves it to a Supabase PostgreSQL database. The system then stores verified lessons and injects them into future prompts through retrieval-augmented generation.
+### 3. The "Bouncer" AI & Session Memory
+If you learn a new trick from a failed attempt, you can submit your terminal output proof. A strict "Bouncer" AI (Llama 3.1 8B via Groq) verifies the execution proof to prevent trolls. If verified, the AI extracts a generalized lesson and saves it to your **isolated session memory**, injecting it into future prompts to prevent repeating mistakes.
 
 ---
 
 ## 📊 Core Architecture Goals
 
-- **Low Latency Generation:** Utilizes Groq's high-speed inference for initial algorithmic logic before passing to the slower, reasoning-heavy tutoring agent.
-- **High Success Rate:** Separating logic generation from persona adherence prevents the 'Blind Leading the Blind' hallucination loop common in single-prompt wrappers.
-- **Long-Term Memory:** Stores and retrieves verified coding lessons via Supabase, reducing repeated logical errors across sessions.
-- **Cost Efficiency:** Offloads 100% of intensive algorithmic generation to free-tier open-source models (Llama 3), reserving premium API quotas exclusively for the Gemini tutoring persona.
+- **Perfect Pedagogy:** Forces the LLM to define every technical term from scratch and explain code in 1-3 line chunks.
+- **Isolated Memory:** Uses pure `st.session_state` for memory to guarantee zero cross-user data leakage and instant performance without database overhead.
+- **Auto-Downgrade Resilience:** A massive 4-stage fallback chain automatically routes around rate limits and 413 token limits (User Key → Gemini models → Groq 70B → Groq 8B).
+- **Token Efficiency:** Raw code and markdown lessons are stored separately in state to prevent token explosion during the error-correction loops.
 
 ---
 
@@ -38,38 +38,32 @@ If a user learns a new trick from a failed attempt, they can submit their termin
 
 **Frontend:**
 - Streamlit
-- Custom VS Code-inspired theme
+- Custom VS Code-inspired Minimum Dark Pro theme
 
 **Backend:**
 - Python
 - Groq API (Llama 3 Inference)
-- Gemini API (Flash 2.5)
-
-**Database:**
-- Supabase PostgreSQL
-- Lesson storage & retrieval (RAG)
+- Gemini API (Flash models)
 
 **AI Pipeline:**
-- Generator Agent (Logic optimization)
-- Tutor Agent (Educational breakdown)
+- Unified Tutor Agent (Logic generation + Educational breakdown)
 - Verification Agent (Bouncer logic)
 
 ---
 
 ## ✨ Features
 
-- **True IDE Aesthetics:** A native Streamlit `config.toml` implementation forces a cohesive, deep slate VS Code AMOLED theme with vibrant Fira Code typography.
-- **Chat-Not-Chat Layout:** Utilizes Streamlit's native Chat Timeline UI to cleanly separate the problem description from the massive, hand-holding tutor explanations.
-- **Auto-Correction Loop:** An anchored chat input allows users to paste specific terminal errors. The AI reviews its own attempt history and surgically patches the bug while leveraging previous debugging context to avoid recurring errors.
-- **BYOK (Bring Your Own Key) Failsafe:** A sleek sidebar toggle allows power users to bypass the free-tier rate limits by injecting their own API keys dynamically.
+- **True IDE Aesthetics:** Cohesive, deep slate VS Code AMOLED theme with vibrant Fira Code typography and amber accents.
+- **Chat-Not-Chat Layout:** Cleanly separates the problem description from the massive, hand-holding tutor explanations.
+- **BYOK (Bring Your Own Key) Failsafe:** A sleek sidebar toggle allows power users to bypass the free-tier rate limits by injecting their own API keys dynamically without crashing the fallback chain.
+- **Strict Guardrails:** An LLM-powered classifier blocks non-coding inputs to save tokens.
 
 ---
 
 ## 🚀 Future Roadmap
 
 - **LeetCode URL Auto-Fetch:** Headless scraping using Playwright to instantly extract problem descriptions and constraints from LeetCode URLs.
-- **Full User Authentication:** Supabase Auth integration to track individual user progress, difficulty ratings, and success rates.
-- **Spaced Repetition Algorithm:** A custom dashboard that resurfaces previously failed problems using a spaced-repetition algorithm to guarantee interview readiness.
+- **Spaced Repetition Dashboard:** A custom UI that resurfaces previously failed problems using a spaced-repetition algorithm to guarantee interview readiness.
 
 ---
 
@@ -83,28 +77,17 @@ If a user learns a new trick from a failed attempt, they can submit their termin
 
 2. Install dependencies:
    ```bash
-   pip install streamlit google-genai groq supabase python-dotenv
+   pip install -r requirements.txt
    ```
 
 3. Create a `.env` file in the root directory and add your API keys:
    ```ini
    GEMINI_API_KEY=your_gemini_key_here
    GROQ_API_KEY=your_groq_key_here
-   SUPABASE_URL=your_supabase_url_here
-   SUPABASE_KEY=your_supabase_key_here
    ```
+   *(Note: The app works entirely offline from databases. No Supabase configuration required!)*
 
-4. Set up your Supabase Database:
-   - Go to your Supabase project SQL Editor and run this to create the memory table:
-     ```sql
-     CREATE TABLE lessons (
-         id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-         lesson_text TEXT NOT NULL,
-         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-     );
-     ```
-
-5. Run the application:
+4. Run the application:
    ```bash
    streamlit run app.py
    ```
