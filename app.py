@@ -5,6 +5,9 @@ from groq import Groq
 import os
 from dotenv import load_dotenv
 import re
+import subprocess
+import tempfile
+import sys
 
 load_dotenv()
 
@@ -173,6 +176,7 @@ _defaults = {
     "last_saved_lesson_text": "",
     "lessons": [],            # In-session lesson memory (no database, no leakage)
     "attempt_errors": [],     # Only error strings, not full markdown solutions
+    "execution_output": None, # Latest run result: {"stdout": str, "stderr": str, "success": bool}
 }
 for key, default in _defaults.items():
     if key not in st.session_state:
@@ -305,6 +309,43 @@ def check_guardrail(text: str, user_key: str = None) -> bool:
         return True  # Fail open if guardrail itself crashes
 
 
+def execute_code(code: str, timeout: int = 10) -> dict:
+    """
+    Runs a Python code string in a subprocess with a timeout.
+    Returns {"stdout": str, "stderr": str, "success": bool}.
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".py", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(code)
+        tmp_path = f.name
+    try:
+        result = subprocess.run(
+            [sys.executable, tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return {
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "success": result.returncode == 0,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "stdout": "",
+            "stderr": f"⏱️ Execution timed out after {timeout}s. Your code may have an infinite loop.",
+            "success": False,
+        }
+    except Exception as e:
+        return {"stdout": "", "stderr": str(e), "success": False}
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
 # ---------- UI ----------
 def _sync_problem():
     """Sync text area → session state. Clears stale results when the problem changes."""
@@ -316,6 +357,7 @@ def _sync_problem():
         st.session_state.raw_code = ""
         st.session_state.attempt_errors = []
         st.session_state.lesson_saved = False
+        st.session_state.execution_output = None
 
 
 st.title("CodeUnfold")
@@ -576,7 +618,120 @@ if st.session_state.current_solution:
                             except Exception as e:
                                 st.error(f"Bouncer AI error: {e}")
 
-    # --- Error Fix Section ---
+    # --- Run Code Section ---
+    if st.session_state.raw_code:
+        with st.expander("▶ Run Code — Test it right here", expanded=bool(st.session_state.execution_output)):
+            st.caption("The AI generates test cases from the problem and runs your code instantly in a sandboxed environment.")
+
+            if st.button("▶ Run Code", type="primary", use_container_width=True, key="run_code_btn"):
+                # Ask Groq fast model to build a complete runnable script with test cases.
+                # We use the fast model here to save quota — this is just scaffolding, not teaching.
+                harness_prompt = (
+                    f"You are a Python expert. Create a complete standalone runnable Python test script.\n\n"
+                    f"REQUIREMENTS:\n"
+                    f"1. Include ALL necessary imports (e.g., from typing import List, Optional, Dict, etc.)\n"
+                    f"2. Include the provided solution class/function EXACTLY as written — no changes\n"
+                    f"3. After the class/function, add 2–3 test cases using examples from the problem\n"
+                    f"4. Print the output of each test case clearly (e.g., print(f'Test 1: {{result}}'))\n"
+                    f"5. Output ONLY the raw Python code — no markdown, no explanations, no triple backticks\n\n"
+                    f"Problem:\n{problem_text[:600]}\n\n"
+                    f"Solution code:\n{st.session_state.raw_code}"
+                )
+                with st.spinner("Building test harness and running code..."):
+                    try:
+                        if _groq_client:
+                            harness_resp = _groq_client.chat.completions.create(
+                                messages=[{"role": "user", "content": harness_prompt}],
+                                model=GROQ_FAST_MODEL,
+                                temperature=0.1,
+                            )
+                            runnable_code = harness_resp.choices[0].message.content.strip()
+                        else:
+                            runnable_code = call_ai(harness_prompt, user_gemini_key)
+
+                        # Strip markdown fences if the model wrapped the code anyway
+                        runnable_code = re.sub(r"^```(?:python)?\n?", "", runnable_code.strip(), flags=re.MULTILINE)
+                        runnable_code = re.sub(r"\n?```$", "", runnable_code.strip(), flags=re.MULTILINE)
+
+                        result = execute_code(runnable_code)
+                        st.session_state.execution_output = result
+                        st.rerun()
+                    except Exception as e:
+                        st.session_state.execution_output = {"stdout": "", "stderr": str(e), "success": False}
+                        st.rerun()
+
+            # Display execution result
+            if st.session_state.execution_output:
+                out = st.session_state.execution_output
+                if out["success"] and out["stdout"].strip():
+                    st.success("✅ Code ran successfully!")
+                    st.code(out["stdout"], language="text")
+                    # One-click: send success proof to the Bouncer flow
+                    st.caption("Looking correct? Toggle '💾 Save this approach to memory' above to verify and save it.")
+                elif out["stderr"].strip():
+                    st.error("❌ Execution failed.")
+                    st.code(out["stderr"], language="text")
+                    # One-click: auto-fill the error fix box with this error
+                    if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
+                        st.session_state.execution_output = None
+                        st.session_state.attempt_errors.append(out["stderr"].strip())
+                        st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
+                        # Trigger the fix loop inline
+                        error_history = "\n".join(
+                            f"Error #{i + 1}:\n{e}" for i, e in enumerate(st.session_state.attempt_errors)
+                        )
+                        code_to_fix = st.session_state.raw_code or "(code unavailable)"
+                        auto_fix_prompt = f"""You are an expert Python debugger and LeetCode Grandmaster.
+
+PROBLEM:
+{problem_text}
+
+CODE THAT FAILED:
+```python
+{code_to_fix}
+```
+
+ALL ERRORS SO FAR (do NOT repeat these mistakes):
+{error_history}
+
+INSTRUCTIONS:
+1. Identify the root cause of each error above.
+2. Do NOT reuse any previously failed approach.
+3. Write a fully correct, optimal, Pythonic solution.
+4. Mentally trace through at least 2 test cases before responding.
+
+RESPONSE FORMAT:
+
+## 🔍 What Went Wrong
+Clear explanation of the bug(s) in plain language.
+
+## ✅ Corrected Solution
+The complete, working Python code in a ```python block.
+
+## 📖 What Changed and Why
+Explain the fix step by step for a beginner.
+
+## ✔️ Verification
+Trace through one example to prove the fix works.
+
+## 💡 Proposed Lesson
+A 1-sentence generalized takeaway. Label it as unverified.
+{get_lessons_context()}"""
+                        with st.spinner("Analyzing error and generating fix..."):
+                            try:
+                                new_text = call_ai(auto_fix_prompt, user_gemini_key)
+                                new_code_match = re.search(r"```python\n(.*?)```", new_text, re.DOTALL)
+                                if new_code_match:
+                                    st.session_state.raw_code = new_code_match.group(1).strip()
+                                st.session_state.current_solution = new_text
+                                st.session_state.show_update_alert = True
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"An error occurred: {e}")
+                else:
+                    st.warning("Code ran but produced no output. Your solution may need explicit print() calls.")
+
+    # --- Manual Error Fix Section ---
     # Using an expander + button instead of st.chat_input, which created a
     # misleading "chatbot" mental model and floated persistently on screen.
     with st.expander("🐛 Got an error? Click here to fix the solution"):
