@@ -9,10 +9,19 @@ GROQ_MAIN_MODEL = "llama-3.3-70b-versatile"
 GROQ_FAST_MODEL = "llama-3.1-8b-instant"
 BOUNCER_MODEL = GROQ_FAST_MODEL
 
-@st.cache_resource
 def _init_clients():
     api_key = os.environ.get("GEMINI_API_KEY")
     groq_key = os.environ.get("GROQ_API_KEY")
+    
+    # Fallback to Streamlit Secrets if env vars are not set
+    try:
+        if not api_key and "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        if not groq_key and "GROQ_API_KEY" in st.secrets:
+            groq_key = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+
     gemini = genai.Client(api_key=api_key) if api_key else None
     groq = Groq(api_key=groq_key) if groq_key else None
     return gemini, groq
