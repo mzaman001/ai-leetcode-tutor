@@ -292,7 +292,24 @@ def call_ai(prompt):
             st.sidebar.caption(f"🤖 Answered by: `{GROQ_MODEL}` (Groq Backup)")
             return chat_completion.choices[0].message.content
         except Exception as groq_e:
-            last_error = groq_e
+            # If 70b fails due to token limits, try the lighter, faster 8b model
+            if "413" in str(groq_e) or "Request too large" in str(groq_e) or "429" in str(groq_e):
+                try:
+                    st.sidebar.caption(f"⚡ Groq 70b limit reached, falling back to 8b...")
+                    chat_completion = groq_client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": prompt[:15000]} # Truncate prompt safely
+                        ],
+                        model="llama-3.1-8b-instant",
+                        temperature=0.2,
+                    )
+                    st.sidebar.caption(f"🤖 Answered by: `llama-3.1-8b-instant` (Groq Backup)")
+                    return chat_completion.choices[0].message.content
+                except Exception as inner_e:
+                    last_error = inner_e
+            else:
+                last_error = groq_e
             
     # 4. Total Failure Failsafe
     raise Exception(
@@ -586,8 +603,7 @@ if st.session_state.current_solution:
 
     # 1. User Message Bubble (The Problem)
     with st.chat_message("user", avatar="👤"):
-        st.markdown("**You asked:**")
-        st.markdown(problem_text)
+        st.markdown(f"**Problem:** {problem_text[:80]}{'...' if len(problem_text) > 80 else ''}")
 
     # 2. Assistant Message Bubble (The Solution)
     with st.chat_message("assistant", avatar="🤖"):
@@ -605,9 +621,7 @@ if st.session_state.current_solution:
         if attempt_count > 0:
             st.caption(f"🔄 This solution has been revised {attempt_count} time(s) based on your feedback.")
 
-        st.divider()
-
-        # --- Positive feedback Bouncer (High Friction) ---
+        # --- Collapsible Save to Memory ---
         if st.session_state.get("lesson_saved", False):
             st.success("✅ Saved to AI memory! I will remember this trick for future problems.", icon="🧠")
             if st.button("Undo (Remove from Memory)"):
@@ -619,57 +633,56 @@ if st.session_state.current_solution:
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
-            st.markdown("#### Save this approach to memory")
-            proof_text = st.text_area("Paste your actual technical success output here (e.g., 'Accepted', 'Passed 10/10'):", height=68)
-            
-            if st.button("Verify & Save", use_container_width=True, type="primary"):
-                if not proof_text or len(proof_text) < 3:
-                    st.error("Please provide actual proof of execution.")
-                elif not groq_client:
-                    st.error("Groq API key is required to run the Bouncer AI. Please add it to your environment variables.")
-                else:
-                    with st.spinner("🤖 Bouncer AI is verifying your proof (costs 0 Gemini quota)..."):
-                        bouncer_prompt = f"""You are a strict Bouncer AI. A student claims the AI solution worked.
-                        Their proof of execution is:
-                        "{proof_text}"
+            show_save = st.toggle("💾 Save this approach to memory", key="show_save_toggle")
+            if show_save:
+                proof_text = st.text_area("Paste your actual technical success output here (e.g., 'Accepted', 'Passed 10/10'):", height=68)
+                
+                if st.button("Verify & Save", use_container_width=True, type="primary"):
+                    if not proof_text or len(proof_text) < 3:
+                        st.error("Please provide actual proof of execution.")
+                    elif not groq_client:
+                        st.error("Groq API key is required to run the Bouncer AI. Please add it to your environment variables.")
+                    else:
+                        with st.spinner("🤖 Bouncer AI is verifying your proof (costs 0 Gemini quota)..."):
+                            bouncer_prompt = f"""You are a strict Bouncer AI. A student claims the AI solution worked.
+                            Their proof of execution is:
+                            "{proof_text}"
 
-                        1. If this proof is just a casual comment or troll (e.g. 'it worked', 'thanks', '123', 'yes'), you MUST output exactly: REJECT
-                        2. If it looks like legitimate technical execution output (e.g. 'Accepted', 'Passed', 'Runtime', 'exit code', '0 errors'), then extract a 1-sentence generalized lesson about WHY the approach works well based on the problem and solution below. Wrap it EXACTLY in <LESSON> and </LESSON> tags.
+                            1. If this proof is just a casual comment or troll (e.g. 'it worked', 'thanks', '123', 'yes'), you MUST output exactly: REJECT
+                            2. If it looks like legitimate technical execution output (e.g. 'Accepted', 'Passed', 'Runtime', 'exit code', '0 errors'), then extract a 1-sentence generalized lesson about WHY the approach works well based on the problem and solution below. Wrap it EXACTLY in <LESSON> and </LESSON> tags.
 
-                        Problem:
-                        {problem_text}
+                            Problem:
+                            {problem_text}
 
-                        Solution:
-                        {st.session_state.current_solution}
-                        """
-                        try:
-                            chat_completion = groq_client.chat.completions.create(
-                                messages=[{"role": "user", "content": bouncer_prompt}],
-                                model=BOUNCER_MODEL,
-                                temperature=0.1,
-                            )
-                            bouncer_reply = chat_completion.choices[0].message.content.strip()
-                            
-                            if "REJECT" in bouncer_reply:
-                                st.error("🛑 Bouncer AI Rejected: That doesn't look like actual technical execution output. Nice try! 😉")
-                            else:
-                                lesson_match = re.search(r"<LESSON>(.*?)</LESSON>", bouncer_reply, re.IGNORECASE | re.DOTALL)
-                                if lesson_match:
-                                    lesson_text = "✅ PROVEN: " + lesson_match.group(1).strip()
-                                else:
-                                    clean_reply = bouncer_reply.replace("REJECT", "").strip()
-                                    lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
+                            Solution:
+                            {st.session_state.current_solution}
+                            """
+                            try:
+                                chat_completion = groq_client.chat.completions.create(
+                                    messages=[{"role": "user", "content": bouncer_prompt}],
+                                    model=BOUNCER_MODEL,
+                                    temperature=0.1,
+                                )
+                                bouncer_reply = chat_completion.choices[0].message.content.strip()
                                 
-                                save_lesson(lesson_text)
-                                get_past_lessons.clear() # Clear cache
-                                st.session_state.last_saved_lesson_text = lesson_text
-                                st.session_state.lesson_saved = True
-                                st.balloons()
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Bouncer AI encountered an error: {e}")
-
-    st.divider()
+                                if "REJECT" in bouncer_reply:
+                                    st.error("🛑 Bouncer AI Rejected: That doesn't look like actual technical execution output. Nice try! 😉")
+                                else:
+                                    lesson_match = re.search(r"<LESSON>(.*?)</LESSON>", bouncer_reply, re.IGNORECASE | re.DOTALL)
+                                    if lesson_match:
+                                        lesson_text = "✅ PROVEN: " + lesson_match.group(1).strip()
+                                    else:
+                                        clean_reply = bouncer_reply.replace("REJECT", "").strip()
+                                        lesson_text = "✅ PROVEN: " + (clean_reply if len(clean_reply) > 5 else "Solution approach verified working.")
+                                    
+                                    save_lesson(lesson_text)
+                                    get_past_lessons.clear() # Clear cache
+                                    st.session_state.last_saved_lesson_text = lesson_text
+                                    st.session_state.lesson_saved = True
+                                    st.balloons()
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Bouncer AI encountered an error: {e}")
 
     # Floating input at the bottom of the screen
     error_text = st.chat_input("Paste your error output to fix the solution")
@@ -737,17 +750,13 @@ if st.session_state.current_solution:
             try:
                 new_text = call_ai(fix_prompt)
 
-                # Extract and save the lesson
+                # Extract and display the proposed lesson (without saving automatically)
                 lesson_match = re.search(r"<LESSON>(.*?)</LESSON>", new_text, re.IGNORECASE | re.DOTALL)
                 if lesson_match:
                     lesson_text = lesson_match.group(1).strip()
-                    save_lesson(lesson_text)
-                    get_past_lessons.clear() # Clear cache
-                    st.session_state.last_saved_lesson_text = lesson_text
-                    st.session_state.lesson_saved = True
                     new_text = re.sub(
                         r"<LESSON>.*?</LESSON>",
-                        f"\n\n**🧠 New Lesson Learned & Saved to Memory:**\n{lesson_text}",
+                        f"\n\n**💡 Proposed Lesson (Test the code first to verify!):**\n{lesson_text}",
                         new_text,
                         flags=re.IGNORECASE | re.DOTALL,
                     )
