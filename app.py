@@ -425,10 +425,17 @@ st.markdown(
 
 st.text_area(
     "Paste your coding problem here:",
-    height=180,
+    height=200,
     key="_problem_widget",
     value=st.session_state.problem_text,
     on_change=_sync_problem,
+    placeholder="Paste the problem description here...",
+)
+st.info(
+    "💡 **Pro tip for best results:** Copy both the **problem description** AND the "
+    "**starter code template** from LeetCode and paste both here. "
+    "The starter code tells the AI the exact method signature and class structure LeetCode expects, "
+    "which significantly improves first-try accuracy."
 )
 
 problem_text = st.session_state.problem_text
@@ -601,7 +608,9 @@ if st.session_state.current_solution:
         st.markdown(f"**Problem:** {problem_text[:80]}{'...' if len(problem_text) > 80 else ''}")
 
     with st.chat_message("assistant", avatar="🤖"):
-        st.html('<script>window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"});</script>')
+        # Delay scroll by 150ms so it fires AFTER Streamlit finishes adding all DOM elements.
+        # Without the delay, the scroll fires too early and the page renders below the top.
+        st.html('<script>setTimeout(function(){ window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"}); }, 150);</script>')
 
         if st.session_state.show_update_alert:
             st.success("Solution updated based on your error report.")
