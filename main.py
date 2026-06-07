@@ -172,12 +172,13 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     with st.spinner("Analyzing error and generating fix..."):
         try:
             new_text = call_ai(fix_prompt, user_key)
-            # Find code block for the selected language, fallback to any if mismatch
-            pattern = rf"```(?:{st.session_state.language.lower()}|python|javascript|java|cpp|c\+\+)?\n(.*?)```"
-            new_code_match = re.search(pattern, new_text, re.DOTALL | re.IGNORECASE)
-            
-            if new_code_match:
-                st.session_state.raw_code = new_code_match.group(1).strip()
+            # Extract the main solution code robustly
+            code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
+            if code_section_match:
+                st.session_state.raw_code = code_section_match.group(1).strip()
+            else:
+                matches = re.findall(r"```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
+                st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
             
             st.session_state.current_solution = new_text
             st.session_state.show_update_alert = True
@@ -290,9 +291,13 @@ elif solve_button and problem_text:
 
         result = re.sub(r"<scratchpad>.*?</scratchpad>", "", result, flags=re.IGNORECASE | re.DOTALL)
         
-        pattern = rf"```(?:{st.session_state.language.lower()}|python|javascript|java|cpp|c\+\+)?\n(.*?)```"
-        code_match = re.search(pattern, result, re.DOTALL | re.IGNORECASE)
-        st.session_state.raw_code = code_match.group(1).strip() if code_match else ""
+        # Extract the main solution code robustly
+        code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
+        if code_section_match:
+            st.session_state.raw_code = code_section_match.group(1).strip()
+        else:
+            matches = re.findall(r"```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
+            st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
 
         st.session_state.current_solution = result.strip()
         st.session_state.current_hints = None

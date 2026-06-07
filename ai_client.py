@@ -86,11 +86,19 @@ def call_ai(prompt: str, user_key: str = None) -> str:
 
     # 3. Groq chain
     if _groq_client:
+        def _safe_truncate(t: str, m: int = 15000) -> str:
+            if len(t) <= m: return t
+            # Try to truncate at a safe boundary (avoiding mid-tag or mid-backtick if possible by truncating earlier)
+            idx = t.rfind('\n\n', 0, m)
+            if idx == -1: idx = t.rfind('\n', 0, m)
+            if idx == -1: idx = m
+            return t[:idx] + "\n\n[...content truncated for fallback model...]"
+
         st.sidebar.caption("🔄 Gemini exhausted. Switching to Groq backup...")
         sys_msg = "You are an expert developer and CS tutor. Be thorough, accurate, and beginner-friendly."
         groq_attempts = [
             (GROQ_MAIN_MODEL, prompt),
-            (GROQ_FAST_MODEL, prompt[:15000]),  # Safely truncated for smaller model
+            (GROQ_FAST_MODEL, _safe_truncate(prompt, 15000)),
         ]
         for groq_model, groq_prompt in groq_attempts:
             try:
