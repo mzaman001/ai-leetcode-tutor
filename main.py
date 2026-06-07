@@ -2,6 +2,8 @@ import streamlit as st
 import re
 import os
 import uuid
+import time
+import difflib
 from dotenv import load_dotenv
 from logger import log
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
@@ -119,10 +121,6 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    section[data-testid="stSidebar"] {
-        background-color: #0d0d14 !important;
-        border-right: 1px solid #1a1a24 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -168,6 +166,12 @@ def _sync_problem():
         st.session_state.lesson_saved = False
         st.session_state.execution_output = None
 
+TOC_MD = """**Quick Navigation:**
+[Analysis](#1-problem-analysis-core-concepts) · [Algorithm](#2-algorithm-walkthrough) · [Code](#3-the-code) · [Breakdown](#4-line-by-line-breakdown) · [Trace](#5-trace-complexity) · [Takeaway](#6-takeaway-community)
+
+---
+"""
+
 def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
     code_to_fix = st.session_state.raw_code or "(code unavailable)"
@@ -183,7 +187,10 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
 
     with st.spinner("Analyzing error and generating fix..."):
         try:
+            old_code = st.session_state.raw_code
+            t0 = time.time()
             new_text = call_ai(fix_prompt, user_key)
+            t1 = time.time()
             # Extract the main solution code robustly
             code_section_match = re.search(r"3\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
             if code_section_match:
@@ -192,6 +199,20 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
                 matches = re.findall(r"```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
                 st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
             
+            if old_code and st.session_state.raw_code:
+                diff = list(difflib.unified_diff(
+                    old_code.splitlines(), 
+                    st.session_state.raw_code.splitlines(), 
+                    fromfile='Previous Code', 
+                    tofile='Fixed Code', 
+                    lineterm=''
+                ))
+                if diff:
+                    diff_text = "\n".join(diff)
+                    diff_markdown = f"### 🔍 Code Diff (What Changed)\n```diff\n{diff_text}\n```\n\n---\n\n"
+                    new_text = diff_markdown + new_text
+
+            new_text = TOC_MD + new_text + f"\n\n---\n*⏱️ Fix generated in {t1-t0:.1f}s*"
             st.session_state.current_solution = new_text
             st.session_state.show_update_alert = True
             st.session_state.execution_output = None
@@ -211,23 +232,59 @@ with st.sidebar:
     if st.session_state.language not in ["Python", "JavaScript"]:
         st.caption(f"Note: Local 'Run Code' execution is not available for {st.session_state.language}. Only the Tutor is available.")
 
-    st.markdown("### ⚙️ API Settings")
-    st.markdown("Add your own key to bypass free-tier rate limits.")
-    user_gemini_key = st.text_input("Your Gemini API Key (Optional)", type="password")
-    if user_gemini_key:
-        st.success("Using your personal Gemini key!")
-    st.divider()
+    st.radio("UI Theme", ["AMOLED", "Deep Dark"], key="theme", horizontal=True)
 
-    st.markdown("### 🧠 Persistent Memory")
-    # Show recently saved from DB
-    context = get_lessons_context()
-    if context:
-        st.caption("Lessons saved in local SQLite DB:")
-        lessons = [line.strip("- ") for line in context.split("\n") if line.startswith("- ")]
-        for l in lessons[:3]:
-            st.caption(f"• {l[:70]}{'...' if len(l) > 70 else ''}")
-    else:
-        st.caption("No lessons yet. Verify a correct solution to build memory!")
+    with st.expander("⚙️ API Settings", expanded=False):
+        st.markdown("Add your own key to bypass free-tier rate limits.")
+        user_gemini_key = st.text_input("Your Gemini API Key (Optional)", type="password")
+        if user_gemini_key:
+            st.toast("Using your personal Gemini key!", icon="✅")
+    
+    with st.expander("🧠 Persistent Memory", expanded=True):
+        context = get_lessons_context()
+        if context:
+            st.caption("Lessons saved in local SQLite DB:")
+            lessons = [line.strip("- ") for line in context.split("\n") if line.startswith("- ")]
+            for l in lessons[:3]:
+                st.caption(f"• {l[:70]}{'...' if len(l) > 70 else ''}")
+        else:
+            st.caption("No lessons yet. Verify a correct solution to build memory!")
+
+# ---------- Dynamic CSS Injection ----------
+bg_color = "#000000" if st.session_state.get("theme") == "AMOLED" else "#0f172a"
+sidebar_bg = "#000000" if st.session_state.get("theme") == "AMOLED" else "#1e293b"
+
+st.markdown(f"""
+<style>
+    .stApp {{ background-color: {bg_color} !important; transition: background-color 0.3s; }}
+    section[data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid #1a1a24 !important; }}
+    
+    /* Typography Hierarchy */
+    .markdown-text-container h2 {{
+        border-left: 4px solid #f59e0b !important;
+        padding-left: 12px !important;
+        background: rgba(245, 158, 11, 0.05);
+        padding-top: 4px; padding-bottom: 4px;
+        margin-top: 2rem !important; margin-bottom: 1rem !important;
+        font-size: 1.4rem !important;
+    }}
+    .markdown-text-container h3 {{
+        font-family: 'Fira Code', monospace !important;
+        font-size: 1.2rem !important;
+        color: #e2e8f0 !important;
+        margin-top: 1.5rem !important; margin-bottom: 0.8rem !important;
+    }}
+
+    /* Animated Spinners */
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 0.4; }}
+        50% {{ opacity: 1; }}
+    }}
+    .stSpinner > div > div > div {{
+        animation: pulse 1.5s ease-in-out infinite !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---------- Main UI ----------
@@ -275,13 +332,16 @@ if hint_button and problem_text:
 CRITICAL: Do NOT write any code."""
     try:
         with st.spinner("Analyzing problem and generating hints..."):
+            t0 = time.time()
             is_valid, result = call_ai_with_guardrail(hint_prompt, problem_text, user_gemini_key)
+            t1 = time.time()
             if not is_valid:
                 st.session_state.current_solution = None
                 st.session_state.current_hints = None
                 st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
                 st.stop()
                 
+        result += f"\n\n---\n*⏱️ Hints generated in {t1-t0:.1f}s*"
         st.session_state.current_hints = result
         st.session_state.current_solution = None
         st.rerun()
@@ -301,7 +361,9 @@ elif solve_button and problem_text:
     
     try:
         with st.spinner(f"Generating {st.session_state.language} lesson..."):
+            t0 = time.time()
             is_valid, result = call_ai_with_guardrail(solve_prompt, problem_text, user_gemini_key)
+            t1 = time.time()
             if not is_valid:
                 st.session_state.current_solution = None
                 st.session_state.current_hints = None
@@ -309,6 +371,7 @@ elif solve_button and problem_text:
                 st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
                 st.stop()
 
+        result = TOC_MD + result + f"\n\n---\n*⏱️ Lesson generated in {t1-t0:.1f}s*"
         st.session_state.current_solution = result
         st.session_state.current_hints = None
         
