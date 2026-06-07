@@ -119,7 +119,7 @@ def _sync_problem():
         st.session_state.execution_output = None
 
 TOC_MD = """**Quick Navigation:**
-[Analysis](#1-problem-analysis-core-concepts) · [Algorithm](#2-algorithm-walkthrough) · [Code](#3-the-code) · [Breakdown](#4-line-by-line-breakdown) · [Trace](#5-trace-complexity) · [Takeaway](#6-takeaway-community)
+[Analysis](#1-problem-analysis) · [Algorithm](#2-algorithm-walkthrough) · [Code](#3-the-code) · [Breakdown](#4-line-by-line-breakdown) · [Trace](#5-trace-and-complexity) · [Takeaway](#6-takeaway-and-community)
 
 ---
 """
