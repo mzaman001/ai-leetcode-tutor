@@ -57,38 +57,8 @@ def call_ai(prompt: str, user_key: str = None) -> str:
             log.warning(f"AI Warning: User key failed - {str(e)[:100]}")
             st.sidebar.warning(f"⚠️ Your personal key failed (`{str(e)[:60]}`). Falling back to shared models...")
 
-    # 2. Default Gemini chain
+    # 2. Groq chain (FASTEST - Try first)
     last_error = None
-    if _default_gemini:
-        for model_id in GEMINI_MODELS:
-            try:
-                log.info(f"AI Request: Attempting Gemini model '{model_id}'")
-                response = _default_gemini.models.generate_content(
-                    model=model_id,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(temperature=0.2),
-                )
-                
-                # Null-safety patch
-                if not response.candidates or not response.candidates[0].content.parts:
-                    last_error = ValueError(f"Empty response from {model_id} (possible safety block)")
-                    continue
-                    
-                parts = [p.text for c in response.candidates for p in c.content.parts if p.text]
-                st.sidebar.caption(f"🤖 Answered by: `{model_id}`")
-                return "\n".join(parts) if parts else response.text
-            except Exception as e:
-                last_error = e
-                err = str(e)
-                if "404" in err or "NOT_FOUND" in err:
-                    log.warning(f"AI Warning: {model_id} unavailable")
-                elif "429" in err or "RESOURCE_EXHAUSTED" in err:
-                    log.warning(f"AI Warning: {model_id} rate-limited")
-                else:
-                    log.error(f"AI Error: {model_id} failed - {err[:100]}")
-                continue
-
-    # 3. Groq chain
     if _groq_client:
         def _safe_truncate(t: str, m: int = 15000) -> str:
             if len(t) <= m: return t
@@ -98,7 +68,6 @@ def call_ai(prompt: str, user_key: str = None) -> str:
             if idx == -1: idx = m
             return t[:idx] + "\n\n[...content truncated for fallback model...]"
 
-        st.sidebar.caption("🔄 Rerouting request to backup servers...")
         sys_msg = "You are an expert developer and CS tutor. Be thorough, accurate, and beginner-friendly."
         groq_attempts = [
             (GROQ_MAIN_MODEL, prompt),
@@ -127,6 +96,38 @@ def call_ai(prompt: str, user_key: str = None) -> str:
                 if "413" in err or "too large" in err.lower() or "429" in err:
                     continue
                 break  # Non-retriable error
+
+    # 3. Default Gemini chain (RATE-LIMIT BUFFER - Try second)
+    if _default_gemini:
+        if _groq_client:  # Only show rerouting message if Groq actually failed (if groq wasn't set up, no need to show this)
+            st.sidebar.caption("🔄 Rerouting request to backup servers...")
+        for model_id in GEMINI_MODELS:
+            try:
+                log.info(f"AI Request: Attempting Gemini model '{model_id}'")
+                response = _default_gemini.models.generate_content(
+                    model=model_id,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(temperature=0.2),
+                )
+                
+                # Null-safety patch
+                if not response.candidates or not response.candidates[0].content.parts:
+                    last_error = ValueError(f"Empty response from {model_id} (possible safety block)")
+                    continue
+                    
+                parts = [p.text for c in response.candidates for p in c.content.parts if p.text]
+                st.sidebar.caption(f"🤖 Answered by: `{model_id}`")
+                return "\n".join(parts) if parts else response.text
+            except Exception as e:
+                last_error = e
+                err = str(e)
+                if "404" in err or "NOT_FOUND" in err:
+                    log.warning(f"AI Warning: {model_id} unavailable")
+                elif "429" in err or "RESOURCE_EXHAUSTED" in err:
+                    log.warning(f"AI Warning: {model_id} rate-limited")
+                else:
+                    log.error(f"AI Error: {model_id} failed - {err[:100]}")
+                continue
 
     # 4. Total failure
     log.error("AI Error: All providers exhausted. Raising exception.")
