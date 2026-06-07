@@ -9,7 +9,7 @@ from executor import execute_code
 from ai_client import (
     call_ai, check_guardrail, build_solve_prompt, 
     build_harness_prompt, build_fix_prompt,
-    _init_clients, BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
+    BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
 
 load_dotenv()
@@ -128,7 +128,7 @@ st.markdown("""
 
 
 # Initialize AI clients on start
-_default_gemini, _groq_client = _init_clients()
+_default_gemini, _groq_client = get_clients()
 if not _default_gemini:
     st.warning("⚠️ `GEMINI_API_KEY` environment variable is not set.")
     st.stop()
