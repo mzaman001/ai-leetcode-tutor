@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 import os
+import uuid
 from dotenv import load_dotenv
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from executor import execute_code
@@ -149,6 +150,11 @@ for key, default in _defaults.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
+if "ai_limiter" not in st.session_state:
+    from rate_limiter import RateLimiter
+    st.session_state.ai_limiter = RateLimiter(max_calls=15, window_seconds=60)
+    st.session_state.exec_limiter = RateLimiter(max_calls=10, window_seconds=60)
+
 def _sync_problem():
     new_text = st.session_state._problem_widget
     if new_text != st.session_state.problem_text:
@@ -169,6 +175,10 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
         st.session_state.language, get_lessons_context()
     )
     
+    if not st.session_state.ai_limiter.allow():
+        st.error("Too many requests! Please wait a moment.")
+        return
+
     with st.spinner("Analyzing error and generating fix..."):
         try:
             new_text = call_ai(fix_prompt, user_key)
@@ -247,6 +257,10 @@ with col2:
 
 
 if hint_button and problem_text:
+    if not st.session_state.ai_limiter.allow():
+        st.error("Too many requests! Please wait a moment.")
+        st.stop()
+        
     with st.spinner("Checking input..."):
         if not check_guardrail(problem_text, user_gemini_key):
             st.session_state.current_solution = None
@@ -273,6 +287,10 @@ CRITICAL: Do NOT write any code."""
         st.error(f"An error occurred: {e}")
 
 elif solve_button and problem_text:
+    if not st.session_state.ai_limiter.allow():
+        st.error("Too many requests! Please wait a moment.")
+        st.stop()
+
     with st.spinner("Checking input..."):
         if not check_guardrail(problem_text, user_gemini_key):
             st.session_state.current_solution = None
@@ -345,7 +363,9 @@ if st.session_state.current_solution:
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
-            toggle_key = f"save_toggle_{abs(hash(problem_text)) % 1_000_000}"
+            if "save_toggle_key" not in st.session_state:
+                st.session_state.save_toggle_key = f"save_toggle_{uuid.uuid4().hex[:8]}"
+            toggle_key = st.session_state.save_toggle_key
             show_save = st.toggle("💾 Save this approach to memory", key=toggle_key)
             if show_save:
                 proof_text = st.text_area("Paste your execution output:", height=68, key="proof_input")
@@ -391,6 +411,10 @@ if st.session_state.current_solution:
             with st.expander("▶ Run Code — Quick Sanity Check", expanded=bool(st.session_state.execution_output)):
                 st.info("⚠️ **This is a local sanity check only.** Passing here does **not** guarantee the code will pass on LeetCode.")
                 if st.button("▶ Run Code", type="primary", use_container_width=True, key="run_code_btn"):
+                    if not st.session_state.exec_limiter.allow():
+                        st.error("Too many execution requests! Please wait a moment.")
+                        st.stop()
+                    
                     harness_prompt = build_harness_prompt(problem_text, st.session_state.raw_code, st.session_state.language)
                     with st.spinner("Building test harness and running code..."):
                         try:
