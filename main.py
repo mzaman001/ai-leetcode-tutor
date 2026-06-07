@@ -274,7 +274,7 @@ if hint_button and problem_text:
 4. Common Pitfalls
 CRITICAL: Do NOT write any code."""
     try:
-        with st.spinner("Analyzing problem and generating hints (Parallelized)..."):
+        with st.spinner("Analyzing problem and generating hints..."):
             is_valid, result = call_ai_with_guardrail(hint_prompt, problem_text, user_gemini_key)
             if not is_valid:
                 st.session_state.current_solution = None
@@ -300,7 +300,7 @@ elif solve_button and problem_text:
     solve_prompt = build_solve_prompt(problem_text, st.session_state.language, get_lessons_context())
     
     try:
-        with st.spinner(f"Generating {st.session_state.language} lesson (Parallelized)..."):
+        with st.spinner(f"Generating {st.session_state.language} lesson..."):
             is_valid, result = call_ai_with_guardrail(solve_prompt, problem_text, user_gemini_key)
             if not is_valid:
                 st.session_state.current_solution = None
