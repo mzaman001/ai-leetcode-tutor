@@ -124,67 +124,6 @@ def call_ai(prompt: str, user_key: str = None) -> str:
         f"(Debug: {str(last_error)[:120]})"
     )
 
-def call_ai_stream(prompt: str, user_key: str = None):
-    """Streaming version of the AI engine with fallback logic."""
-    _default_gemini, _groq_client = get_clients()
-
-    def _gemini_stream(client, model_id):
-        resp = client.models.generate_content_stream(
-            model=model_id, contents=prompt, config=types.GenerateContentConfig(temperature=0.2)
-        )
-        iterator = iter(resp)
-        try:
-            first = next(iterator)
-        except StopIteration:
-            raise ValueError("Empty response")
-        if first.text: yield first.text
-        for chunk in iterator:
-            if chunk.text: yield chunk.text
-
-    def _groq_stream(client, model_id, g_prompt):
-        resp = client.chat.completions.create(
-            messages=[{"role": "system", "content": "You are an expert developer and CS tutor."}, {"role": "user", "content": g_prompt}],
-            model=model_id, temperature=0.2, stream=True
-        )
-        iterator = iter(resp)
-        try:
-            first = next(iterator)
-        except StopIteration:
-            raise ValueError("Empty response")
-        if first.choices[0].delta.content: yield first.choices[0].delta.content
-        for chunk in iterator:
-            if chunk.choices[0].delta.content: yield chunk.choices[0].delta.content
-
-    if user_key:
-        try:
-            temp_client = genai.Client(api_key=user_key)
-            for chunk in _gemini_stream(temp_client, "gemini-2.5-flash"):
-                yield chunk
-            return
-        except Exception as e:
-            pass # fall through to shared
-
-    if _default_gemini:
-        for model_id in GEMINI_MODELS:
-            try:
-                for chunk in _gemini_stream(_default_gemini, model_id):
-                    yield chunk
-                return
-            except Exception:
-                continue
-
-    if _groq_client:
-        groq_attempts = [(GROQ_MAIN_MODEL, prompt), (GROQ_FAST_MODEL, prompt[:15000])]
-        for groq_model, groq_prompt in groq_attempts:
-            try:
-                for chunk in _groq_stream(_groq_client, groq_model, groq_prompt):
-                    yield chunk
-                return
-            except Exception:
-                continue
-
-    yield "🛑 All AI providers temporarily unavailable. Please try again or provide your own API key."
-
 
 def check_guardrail(text: str, user_key: str = None) -> bool:
     """Checks if the input is actually a coding-related problem."""

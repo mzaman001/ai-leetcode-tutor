@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from executor import execute_code
 from ai_client import (
-    call_ai, call_ai_stream, check_guardrail, build_solve_prompt, 
+    call_ai, check_guardrail, build_solve_prompt, 
     build_harness_prompt, build_fix_prompt,
     _init_clients, BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
@@ -285,19 +285,8 @@ elif solve_button and problem_text:
     solve_prompt = build_solve_prompt(problem_text, st.session_state.language, get_lessons_context())
     
     try:
-        st.session_state.current_solution = None
-        st.session_state.current_hints = None
-        st.session_state.lesson_saved = False
-
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(f"**Problem:** {problem_text[:80]}...")
-            
-        with st.chat_message("assistant", avatar="🤖"):
-            st.html('<script>setTimeout(function(){ window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"}); }, 150);</script>')
-            st.markdown("### Solution Breakdown")
-            
-            stream_gen = call_ai_stream(solve_prompt, user_gemini_key)
-            result = st.write_stream(stream_gen)
+        with st.spinner(f"Generating {st.session_state.language} lesson..."):
+            result = call_ai(solve_prompt, user_gemini_key)
 
         result = re.sub(r"<scratchpad>.*?</scratchpad>", "", result, flags=re.IGNORECASE | re.DOTALL)
         
@@ -306,7 +295,9 @@ elif solve_button and problem_text:
         st.session_state.raw_code = code_match.group(1).strip() if code_match else ""
 
         st.session_state.current_solution = result.strip()
+        st.session_state.current_hints = None
         st.session_state.show_update_alert = False
+        st.session_state.lesson_saved = False
         st.rerun()
     except Exception as e:
         st.error(f"An error occurred: {e}")
