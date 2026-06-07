@@ -142,6 +142,7 @@ _defaults = {
     "show_update_alert": False,
     "lesson_saved": False,
     "last_saved_lesson_text": "",
+    "last_saved_lesson_id": -1,
     "attempt_errors": [],
     "execution_output": None,
     "language": "Python",
@@ -358,8 +359,9 @@ if st.session_state.current_solution:
         if st.session_state.get("lesson_saved", False):
             st.success("✅ Saved to local SQLite database!", icon="🧠")
             if st.button("Undo (Remove from Memory)"):
-                last = st.session_state.get("last_saved_lesson_text", "")
-                remove_lesson_from_db(last)
+                last_id = st.session_state.get("last_saved_lesson_id", -1)
+                if last_id != -1:
+                    remove_lesson_from_db(last_id)
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
@@ -398,7 +400,8 @@ if st.session_state.current_solution:
                                 else:
                                     m = re.search(r"<LESSON>(.*?)</LESSON>", reply, re.IGNORECASE | re.DOTALL)
                                     lesson = "✅ PROVEN: " + (m.group(1).strip() if m else "Solution approach verified working.")
-                                    save_lesson_to_db(lesson)
+                                    lesson_id = save_lesson_to_db(lesson)
+                                    st.session_state.last_saved_lesson_id = lesson_id
                                     st.session_state.last_saved_lesson_text = lesson
                                     st.session_state.lesson_saved = True
                                     st.balloons()

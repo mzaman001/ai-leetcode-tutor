@@ -18,22 +18,26 @@ def init_db():
         conn.execute('''
             CREATE TABLE IF NOT EXISTS lessons (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                lesson_text TEXT NOT NULL,
+                lesson_text TEXT NOT NULL UNIQUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         conn.commit()
 
-def save_lesson_to_db(lesson_text: str):
-    """Saves a verified lesson to the local database."""
+def save_lesson_to_db(lesson_text: str) -> int:
+    """Saves a verified lesson to the local database and returns its ID."""
     with get_db() as conn:
-        conn.execute('INSERT INTO lessons (lesson_text) VALUES (?)', (lesson_text,))
+        cursor = conn.cursor()
+        cursor.execute('INSERT OR IGNORE INTO lessons (lesson_text) VALUES (?)', (lesson_text,))
         conn.commit()
+        cursor.execute('SELECT id FROM lessons WHERE lesson_text = ?', (lesson_text,))
+        row = cursor.fetchone()
+        return row[0] if row else -1
 
-def remove_lesson_from_db(lesson_text: str):
-    """Removes a lesson (used for Undo)."""
+def remove_lesson_from_db(lesson_id: int):
+    """Removes a lesson by its primary key ID."""
     with get_db() as conn:
-        conn.execute('DELETE FROM lessons WHERE lesson_text = ?', (lesson_text,))
+        conn.execute('DELETE FROM lessons WHERE id = ?', (lesson_id,))
         conn.commit()
 
 def get_lessons_context() -> str:
