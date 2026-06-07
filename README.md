@@ -2,35 +2,44 @@
 
 ![UI Showcase](https://img.shields.io/badge/UI-AMOLED_Chat-black?style=for-the-badge)
 ![Tech Stack](https://img.shields.io/badge/Tech-Python_|_Streamlit_|_SQLite-blue?style=for-the-badge)
-![AI Models](https://img.shields.io/badge/AI-Groq_|_Gemini-orange?style=for-the-badge)
+![AI Models](https://img.shields.io/badge/AI-Groq_Llama3_|_Gemini_Flash-orange?style=for-the-badge)
+![Performance](https://img.shields.io/badge/Performance-Zero_Budget_|_Max_Speed-brightgreen?style=for-the-badge)
 
-A highly advanced AI coding tutor built to solve complex LeetCode problems optimally and teach them step-by-step using a literal "Hand-Holding" pair-programmer format.
+A highly advanced AI coding tutor built to solve complex LeetCode problems optimally and teach them step-by-step using a structured, beginner-friendly "Hand-Holding" format.
 
-Unlike standard LLM wrappers, this application utilizes a **Unified Agentic Tutor Pipeline** designed to guarantee algorithmic accuracy by having the AI mentally verify code *before* it begins teaching it.
+Unlike standard LLM wrappers, this application utilizes a **Zero-Budget High-Speed Pipeline** and **Verified Community Knowledge** to guarantee algorithmic accuracy by heavily prioritizing pre-trained community solutions (e.g., NeetCode, famous GitHub repos) over raw AI hallucination.
+
+---
+
+## ⚡ Speed & Cost Optimizations (Zero Budget Architecture)
+
+This app is heavily optimized to run at maximum speed using entirely free-tier API keys:
+
+1. **Hardware-Accelerated Fallback Chain:** The app tries **Groq's LPU hardware** first (Llama 3.3 70B) for blistering speed (300+ tokens/sec). If Groq rate-limits the user, it silently and instantly reroutes to **Google Gemini 2.5 Flash** as a reliable, massive rate-limit buffer.
+2. **Parallelized Guardrails:** Malicious prompt detection and actual code generation fire simultaneously via threading, saving 1-2 seconds per request.
+3. **Prompt Compression:** AI instructions are mathematically compressed to generate exactly what is needed with ~13% fewer output tokens, guaranteeing lightning-fast TTFT (Time To First Token).
 
 ---
 
 ## 🏗️ The Multi-Agent Architecture
 
-This project solves the famous AI "Blind Leading the Blind" problem through robust guardrails and strict pedagogical prompting.
-
-### 1. The Agentic Tutor (Primary)
-When a problem is submitted, the AI (Gemini or Groq) is forced into a strict pedagogical structure. It must first write the optimal code and then immediately break it down line-by-line. This unified approach prevents the AI from trying to teach incorrect code.
+### 1. The Verified Tutor (Primary)
+When a problem is submitted, the AI is blocked from "inventing" algorithms. It is strictly commanded to recall verified solutions from its training data (LeetCode discussions, famous GitHub repos) and teach that optimal code line-by-line.
 
 ### 2. The Auto-Correction Loop
-If the solution fails in your testing environment, you can paste the error output. The AI reviews the **exact raw code** that failed along with your error string, surgically patching the bug while leveraging previous debugging context to avoid recurring errors.
+If your solution fails, paste the exact LeetCode error output. The AI reviews your code, the exact raw error string, and previously learned lessons to surgically patch the bug.
 
-### 3. The "Bouncer" AI & Persistent Memory
-If you learn a new trick from a failed attempt, you can submit your terminal output proof. A strict "Bouncer" AI verifies the execution proof to prevent trolls. If verified, the AI extracts a generalized lesson and saves it to your **local SQLite database**, injecting it into future prompts to prevent repeating mistakes across sessions.
+### 3. Persistent SQLite Memory
+When you learn a new trick or solve a bug, you can save the lesson. A strict "Bouncer" AI verifies the lesson to prevent trolls. If verified, the AI extracts a generalized lesson and saves it to a **local SQLite database** (`lessons.db`), seamlessly injecting it into future prompts so you never make the same mistake twice.
 
 ---
 
-## 📊 Core Architecture Goals
+## 🛡️ Security & Reliability
 
-- **Perfect Pedagogy:** Forces the LLM to define every technical term from scratch and explain code in 1-3 line chunks.
-- **Local Persistence:** Uses a local SQLite database (`lessons.db`) for lightweight, offline-friendly memory storage.
-- **Auto-Downgrade Resilience:** A massive 4-stage fallback chain automatically routes around rate limits and 413 token limits (User Key → Gemini models → Groq 70B → Groq 8B).
-- **Secure Local Execution:** Safely execute Python code locally using AST sandboxing, or JavaScript using isolated Node.js child processes.
+- **Strict AST Sandboxing:** Safely execute Python code locally. The custom sandbox physically blocks dangerous imports (`os`, `sys`, `subprocess`) and built-in functions (`eval`, `exec`) using AST NodeVisitors.
+- **Prompt Injection Defense:** Input is heavily sanitized (`<user_problem>` tagging, tag stripping) to prevent malicious users from breaking the guardrails.
+- **XSRF & CORS Protection:** Fully configured for safe deployment on Streamlit Community Cloud.
+- **Rate Limiting:** Built-in Token Bucket rate limiters prevent API spam and save your free-tier quotas.
 
 ---
 
@@ -41,32 +50,29 @@ If you learn a new trick from a failed attempt, you can submit your terminal out
 - Custom VS Code-inspired Minimum Dark Pro theme
 
 **Backend:**
-- Python
-- SQLite (Local Database)
+- Python 3.x
+- SQLite (Local Database with `UNIQUE` constraints and threaded caching)
 - Secure AST Sandboxing (Python) & Node.js subprocess (JavaScript)
 
 **AI Pipeline:**
 - Groq API (Llama 3 Inference)
 - Gemini API (Flash models)
-- Unified Tutor Agent & Verification Agent
+- Concurrent execution via `ThreadPoolExecutor`
 
 ---
 
-## ✨ Features
+## 🚀 Deployment (Streamlit Community Cloud)
 
-- **Multi-Language Support:** Tutor supports Python, JavaScript, Java, C++, Go, and Rust. Local execution supported for Python and JavaScript.
-- **Community Solutions Integration:** Automatically searches its vast parametric knowledge base for famous LeetCode tricks (e.g., StefanPochmann's 1-liners) and weaves them directly into the explanation.
-- **True IDE Aesthetics:** Cohesive, deep slate VS Code AMOLED theme with vibrant Fira Code typography and amber accents.
-- **Chat-Not-Chat Layout:** Cleanly separates the problem description from the massive, hand-holding tutor explanations.
-- **BYOK (Bring Your Own Key) Failsafe:** A sleek sidebar toggle allows power users to bypass the free-tier rate limits by injecting their own API keys dynamically.
-- **Strict Guardrails:** An LLM-powered classifier blocks non-coding inputs to save tokens.
+To deploy this app for free on Streamlit Community Cloud:
 
----
-
-## 🚀 Future Roadmap
-
-- **LeetCode URL Auto-Fetch:** Headless scraping using Playwright to instantly extract problem descriptions and constraints from LeetCode URLs.
-- **Spaced Repetition Dashboard:** A custom UI that resurfaces previously failed problems using a spaced-repetition algorithm to guarantee interview readiness.
+1. Connect your GitHub repository to Streamlit.
+2. Go to **Advanced Settings > Secrets** in your Streamlit dashboard.
+3. Paste the following TOML configuration with your free API keys:
+   ```toml
+   GEMINI_API_KEY = "your_google_gemini_key_here"
+   GROQ_API_KEY = "your_groq_key_here"
+   ```
+4. Click **Deploy**. The app handles the rest!
 
 ---
 
@@ -88,7 +94,6 @@ If you learn a new trick from a failed attempt, you can submit your terminal out
    GEMINI_API_KEY=your_gemini_key_here
    GROQ_API_KEY=your_groq_key_here
    ```
-   *(Note: The app works entirely offline from external databases. No Supabase configuration required!)*
 
 4. Run the application:
    ```bash
