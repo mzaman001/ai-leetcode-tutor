@@ -94,7 +94,9 @@ def call_ai(prompt: str, user_key: str = None) -> str:
                 last_error = e
                 err = str(e)
                 if "413" in err or "too large" in err.lower() or "429" in err:
+                    log.warning(f"AI Warning: {groq_model} limit hit - {err[:100]}")
                     continue
+                log.error(f"AI Error: {groq_model} failed critically - {err[:100]}")
                 break  # Non-retriable error
 
     # 3. Default Gemini chain (RATE-LIMIT BUFFER - Try second)
