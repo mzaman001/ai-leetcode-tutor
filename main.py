@@ -26,101 +26,53 @@ st.markdown("""
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
-
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
     ::selection { background: rgba(245, 158, 11, 0.3); color: #f8fafc; }
-
-    .stApp { background-color: #0a0a0f !important; }
     section.main { overflow-anchor: none !important; }
-    .stApp::before {
-        content: '';
-        position: fixed;
-        top: 0; left: 0; right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #f59e0b, #f97316);
-        z-index: 999;
-    }
 
-    h1, h2, h3, p, li, label {
-        font-family: 'Inter', -apple-system, sans-serif !important;
+    /* Theme Overhaul */
+    .stApp { background: linear-gradient(135deg, #0f172a 0%, #0a0a0f 100%) !important; }
+    .stApp::before {
+        content: 'CodeUnfold'; position: fixed; top: 0; left: 0; right: 0; height: 48px;
+        background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center;
+        padding: 0 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px;
+        color: #f8fafc; z-index: 999;
     }
+    
+    h1, h2, h3, p, li, label { font-family: 'Inter', -apple-system, sans-serif !important; }
 
     .stTextArea textarea {
-        background-color: rgba(15, 23, 42, 0.95) !important;
-        border: 1px solid #334155 !important;
-        color: #fef3c7 !important;
-        font-family: 'Fira Code', monospace !important;
-        border-radius: 8px !important;
-        transition: border-color 0.2s ease !important;
-        box-shadow: none !important;
+        background-color: #1e293b !important; border: 2px solid #334155 !important;
+        color: #f8fafc !important; font-family: 'Fira Code', monospace !important;
+        border-radius: 12px !important; padding: 16px !important; font-size: 14px !important;
+        transition: all 0.3s ease !important; box-shadow: none !important;
     }
-    .stTextArea textarea:focus {
-        border-color: #f59e0b !important;
-        box-shadow: none !important;
-    }
+    .stTextArea textarea:focus { border-color: #f59e0b !important; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1) !important; }
+    
+    [data-testid="stExpander"] { background: #1e293b !important; border: 1px solid #334155 !important; border-radius: 12px !important; margin-bottom: 12px !important; }
+    [data-testid="stExpander"] summary { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; color: #f8fafc !important; }
+    
+    .stButton > button { border-radius: 12px !important; padding: 12px 32px !important; font-weight: 600 !important; border: none !important; transition: all 0.2s ease !important; }
+    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #f59e0b, #f97316) !important; color: #000 !important; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important; }
+    .stButton > button[kind="primary"]:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4) !important; }
+    .stButton > button[kind="secondary"] { background: rgba(59, 130, 246, 0.1) !important; border: 1px solid rgba(59, 130, 246, 0.3) !important; color: #93c5fd !important; }
+    
+    [data-testid="stChatMessage"] { background: #1e293b !important; border: 1px solid #334155 !important; border-left: 4px solid #f59e0b !important; border-radius: 12px !important; padding: 24px !important; box-shadow: none !important; margin-bottom: 16px !important; }
+    [data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) { border-left-color: #64748b !important; }
+    
+    pre { background: #0f172a !important; border: 1px solid #334155 !important; border-radius: 8px !important; padding: 20px !important; }
+    pre code { font-family: 'Fira Code', monospace !important; font-size: 13px !important; color: #f8fafc !important; }
+    
+    section[data-testid="stSidebar"] { background: #0f172a !important; border-right: 1px solid #334155 !important; }
 
-    span[class*="material-symbols"], i[class*="material-symbols"], .material-icons {
-        font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
-    }
+    /* Animated Spinners */
+    @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    .stSpinner > div > div > div { animation: pulse 1.5s ease-in-out infinite !important; }
 
-    code {
-        font-family: 'Fira Code', monospace !important;
-        color: #f59e0b !important;
-    }
-    pre {
-        background: rgba(15, 23, 42, 0.8) !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 8px !important;
-        padding: 16px !important;
-        box-shadow: none !important;
-    }
-    pre code { color: #f8fafc !important; }
-
-    [data-testid="stChatMessage"] {
-        background: rgba(15, 23, 42, 0.5) !important;
-        border: none !important;
-        border-left: 3px solid #f59e0b !important;
-        border-radius: 0 12px 12px 0 !important;
-        padding: 20px 24px !important;
-        margin-bottom: 16px !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
-        border-left-color: #64748b !important;
-    }
-
-    .stButton > button {
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 500 !important;
-        text-transform: none !important;
-        letter-spacing: normal !important;
-        border-radius: 999px !important;
-        padding: 8px 24px !important;
-        transition: all 0.2s ease !important;
-    }
-    .stButton > button[kind="secondary"] {
-        background: rgba(245, 158, 11, 0.08) !important;
-        border: 1px solid rgba(245, 158, 11, 0.2) !important;
-        color: #fcd34d !important;
-        box-shadow: none !important;
-    }
-    .stButton > button[kind="secondary"]:hover {
-        background: rgba(245, 158, 11, 0.15) !important;
-        border-color: #f59e0b !important;
-        box-shadow: none !important;
-    }
-    .stButton > button[kind="primary"] {
-        background: #f59e0b !important;
-        border: none !important;
-        color: #000 !important;
-        box-shadow: none !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        opacity: 0.9 !important;
-        box-shadow: none !important;
-    }
-
+    /* Typography Hierarchy */
+    .markdown-text-container h2 { border-left: 4px solid #f59e0b !important; padding-left: 12px !important; background: rgba(245, 158, 11, 0.05); margin-top: 2rem !important; }
+    .markdown-text-container h3 { font-family: 'Fira Code', monospace !important; color: #e2e8f0 !important; margin-top: 1.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -223,32 +175,40 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.markdown("### 🌐 Language")
-    st.session_state.language = st.selectbox(
-        "Choose your interview language:",
-        ["Python", "JavaScript", "Java", "C++", "Go", "Rust"]
-    )
+    st.markdown("## 🤖 CodeUnfold")
+    st.caption("AI-Powered LeetCode Tutor")
+    st.divider()
+
+    st.markdown("### ⚡ API Status")
+    status_col1, status_col2 = st.columns(2)
+    with status_col1:
+        if _groq_client:
+            st.success("Groq ✓")
+        else:
+            st.error("Groq ✗")
+    with status_col2:
+        if _default_gemini:
+            st.success("Gemini ✓")
+        else:
+            st.error("Gemini ✗")
     
-    if st.session_state.language not in ["Python", "JavaScript"]:
-        st.caption(f"Note: Local 'Run Code' execution is not available for {st.session_state.language}. Only the Tutor is available.")
+    st.divider()
 
     st.radio("UI Theme", ["AMOLED", "Deep Dark"], key="theme", horizontal=True)
 
-    with st.expander("⚙️ API Settings", expanded=False):
-        st.markdown("Add your own key to bypass free-tier rate limits.")
+    with st.expander("🔑 API Settings", expanded=False):
         user_gemini_key = st.text_input("Your Gemini API Key (Optional)", type="password")
         if user_gemini_key:
             st.toast("Using your personal Gemini key!", icon="✅")
     
-    with st.expander("🧠 Persistent Memory", expanded=True):
+    with st.expander("🧠 Saved Lessons", expanded=True):
         context = get_lessons_context()
         if context:
-            st.caption("Lessons saved in local SQLite DB:")
             lessons = [line.strip("- ") for line in context.split("\n") if line.startswith("- ")]
-            for l in lessons[:3]:
-                st.caption(f"• {l[:70]}{'...' if len(l) > 70 else ''}")
+            for l in lessons[:5]:
+                st.caption(f"• {l[:60]}{'...' if len(l) > 60 else ''}")
         else:
-            st.caption("No lessons yet. Verify a correct solution to build memory!")
+            st.caption("No lessons yet.")
 
 # ---------- Dynamic CSS Injection ----------
 bg_color = "#000000" if st.session_state.get("theme") == "AMOLED" else "#0f172a"
@@ -288,31 +248,37 @@ st.markdown(f"""
 
 
 # ---------- Main UI ----------
-st.title("CodeUnfold")
-st.markdown("Paste any coding problem below. Get **hints** to solve it yourself, or **reveal the full solution** for a complete step-by-step lesson.")
+header_col1, header_col2 = st.columns([2, 1])
+with header_col1:
+    st.markdown("# 🤖 CodeUnfold")
+with header_col2:
+    st.session_state.language = st.selectbox(
+        "Language", ["Python", "JavaScript", "Java", "C++", "Go", "Rust"],
+        label_visibility="collapsed"
+    )
+    if st.session_state.language not in ["Python", "JavaScript"]:
+        st.caption("No local run support")
 
+st.markdown("### Problem Input")
 st.text_area(
     "Paste your coding problem here:",
-    height=200,
+    height=150,
     key="_problem_widget",
     value=st.session_state.problem_text,
     on_change=_sync_problem,
-    placeholder="Paste the problem description here...",
-)
-st.info(
-    "💡 **Pro tip for best results:** Copy both the **problem description** AND the "
-    "**starter code template** from LeetCode and paste both here. "
-    "The starter code tells the AI the exact method signature and class structure LeetCode expects, "
-    "which significantly improves first-try accuracy."
+    placeholder="Paste problem description + starter code template...\n\nTip: Include both the problem AND the starter code for best results.",
+    label_visibility="collapsed"
 )
 
 problem_text = st.session_state.problem_text
 
-col1, col2 = st.columns(2)
-with col1:
-    hint_button = st.button("💡 Get Hints", use_container_width=True)
-with col2:
+btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+with btn_col1:
+    hint_button = st.button("💡 Get Hints", use_container_width=True, type="secondary")
+with btn_col2:
     solve_button = st.button("🔍 Reveal Solution", use_container_width=True, type="primary")
+with btn_col3:
+    st.empty()
 
 
 if hint_button and problem_text:
@@ -522,10 +488,11 @@ if st.session_state.current_solution:
                             else:
                                 st.warning("Paste the LeetCode error first.")
                     elif out["stderr"].strip():
-                        st.error("❌ Execution failed (local environment).")
-                        st.code(out["stderr"], language="text")
-                        if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
-                            st.session_state.attempt_errors.append(out["stderr"].strip())
+                        with st.container(border=True):
+                            st.error("❌ Execution failed (local environment).")
+                            st.code(out["stderr"], language="text")
+                            if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
+                                st.session_state.attempt_errors.append(out["stderr"].strip())
                             st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
                             _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
                     else:
