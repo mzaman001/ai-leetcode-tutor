@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 import shutil
+from logger import log
 
 FORBIDDEN_IMPORTS = {'os', 'sys', 'subprocess', 'shutil', 'pty', 'pathlib', 'socket', 'threading', 'multiprocessing', 'importlib', 'pickle', 'urllib', 'requests', 'http', 'ftplib', 'telnetlib'}
 FORBIDDEN_FUNCTIONS = {'open', 'eval', 'exec', 'compile', '__import__', 'globals', 'locals', 'vars', 'getattr', 'setattr', 'delattr', 'memoryview', 'input'}
@@ -50,9 +51,11 @@ def execute_code(code: str, language: str = "Python", timeout: int = 10) -> dict
     Runs code in a subprocess with a timeout.
     Supports Python (with AST sandboxing) and JavaScript.
     """
+    log.info(f"Code Execution Started - Language: {language} - Timeout: {timeout}s")
     if language == "Python":
         safe, msg = is_safe_python(code)
         if not safe:
+            log.warning(f"Execution Blocked - AST Sandbox Violation: {msg}")
             return {"stdout": "", "stderr": msg, "success": False}
             
         suffix = ".py"
@@ -85,12 +88,14 @@ def execute_code(code: str, language: str = "Python", timeout: int = 10) -> dict
             text=True,
             timeout=timeout,
         )
+        log.info(f"Execution Completed - Success: {result.returncode == 0}")
         return {
             "stdout": result.stdout,
             "stderr": result.stderr,
             "success": result.returncode == 0,
         }
     except subprocess.TimeoutExpired:
+        log.warning("Execution Failed - Timeout Expired")
         return {
             "stdout": "",
             "stderr": f"⏱️ Execution timed out after {timeout}s. Your code may have an infinite loop.",

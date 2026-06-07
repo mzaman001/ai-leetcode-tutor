@@ -3,6 +3,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 from groq import Groq
+from logger import log
 
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
 GROQ_MAIN_MODEL = "llama-3.3-70b-versatile"
@@ -36,6 +37,7 @@ def call_ai(prompt: str, user_key: str = None) -> str:
     # 1. User-provided key
     if user_key:
         try:
+            log.info("AI Request: Attempting user-provided Gemini key")
             temp_client = genai.Client(api_key=user_key)
             response = temp_client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -46,9 +48,11 @@ def call_ai(prompt: str, user_key: str = None) -> str:
                 raise ValueError("Received empty response from user key (safety block?)")
                 
             st.sidebar.caption("🤖 Answered by: `gemini-2.5-flash` (your key)")
+            log.info("AI Response: Success with user-provided key")
             parts = [p.text for c in response.candidates for p in c.content.parts if p.text]
             return "\n".join(parts) if parts else response.text
         except Exception as e:
+            log.warning(f"AI Warning: User key failed - {str(e)[:100]}")
             st.sidebar.warning(f"⚠️ Your personal key failed (`{str(e)[:60]}`). Falling back to shared models...")
 
     # 2. Default Gemini chain
@@ -56,6 +60,7 @@ def call_ai(prompt: str, user_key: str = None) -> str:
     if _default_gemini:
         for model_id in GEMINI_MODELS:
             try:
+                log.info(f"AI Request: Attempting Gemini model '{model_id}'")
                 response = _default_gemini.models.generate_content(
                     model=model_id,
                     contents=prompt,
@@ -74,10 +79,13 @@ def call_ai(prompt: str, user_key: str = None) -> str:
                 last_error = e
                 err = str(e)
                 if "404" in err or "NOT_FOUND" in err:
+                    log.warning(f"AI Warning: {model_id} unavailable")
                     st.sidebar.caption(f"⚠️ `{model_id}` unavailable, skipping...")
                 elif "429" in err or "RESOURCE_EXHAUSTED" in err:
+                    log.warning(f"AI Warning: {model_id} rate-limited")
                     st.sidebar.caption(f"⚡ `{model_id}` rate-limited, trying next...")
                 else:
+                    log.error(f"AI Error: {model_id} failed - {err[:100]}")
                     st.sidebar.caption(f"❌ `{model_id}` error, trying next...")
                 continue
 
@@ -99,6 +107,7 @@ def call_ai(prompt: str, user_key: str = None) -> str:
         ]
         for groq_model, groq_prompt in groq_attempts:
             try:
+                log.info(f"AI Request: Attempting Groq model '{groq_model}'")
                 completion = _groq_client.chat.completions.create(
                     messages=[
                         {"role": "system", "content": sys_msg},
@@ -122,6 +131,7 @@ def call_ai(prompt: str, user_key: str = None) -> str:
                 break  # Non-retriable error
 
     # 4. Total failure
+    log.error("AI Error: All providers exhausted. Raising exception.")
     groq_note = "Groq backup is unavailable (no API key)." if not _groq_client else "Groq backup is also rate-limited."
     raise Exception(
         f"🛑 All AI providers temporarily unavailable. Gemini is rate-limited and {groq_note}\n\n"
@@ -132,6 +142,7 @@ def call_ai(prompt: str, user_key: str = None) -> str:
 
 def check_guardrail(text: str, user_key: str = None) -> bool:
     """Checks if the input is actually a coding-related problem."""
+    log.info("Guardrail: Checking input validity")
     _default_gemini, _groq_client = get_clients()
     if len(text.strip()) < 10:
         return False

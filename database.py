@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import streamlit as st
 from contextlib import contextmanager
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lessons.db")
@@ -40,6 +41,7 @@ def remove_lesson_from_db(lesson_id: int):
         conn.execute('DELETE FROM lessons WHERE id = ?', (lesson_id,))
         conn.commit()
 
+@st.cache_data(ttl=30)
 def get_lessons_context() -> str:
     """Retrieves up to 5 recent lessons from the local database."""
     if not os.path.exists(DB_PATH):

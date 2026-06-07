@@ -3,6 +3,7 @@ import re
 import os
 import uuid
 from dotenv import load_dotenv
+from logger import log
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from executor import execute_code
 from ai_client import (
@@ -258,6 +259,7 @@ with col2:
 
 
 if hint_button and problem_text:
+    log.info(f"User Action: Request Hint - Language: {st.session_state.language}")
     if not st.session_state.ai_limiter.allow():
         st.error("Too many requests! Please wait a moment.")
         st.stop()
@@ -288,6 +290,7 @@ CRITICAL: Do NOT write any code."""
         st.error(f"An error occurred: {e}")
 
 elif solve_button and problem_text:
+    log.info(f"User Action: Reveal Solution - Language: {st.session_state.language}")
     if not st.session_state.ai_limiter.allow():
         st.error("Too many requests! Please wait a moment.")
         st.stop()
@@ -414,6 +417,7 @@ if st.session_state.current_solution:
             with st.expander("▶ Run Code — Quick Sanity Check", expanded=bool(st.session_state.execution_output)):
                 st.info("⚠️ **This is a local sanity check only.** Passing here does **not** guarantee the code will pass on LeetCode.")
                 if st.button("▶ Run Code", type="primary", use_container_width=True, key="run_code_btn"):
+                    log.info(f"User Action: Run Code - Language: {st.session_state.language}")
                     if not st.session_state.exec_limiter.allow():
                         st.error("Too many execution requests! Please wait a moment.")
                         st.stop()
@@ -470,6 +474,7 @@ if st.session_state.current_solution:
             st.caption("Paste any error directly from LeetCode. The AI uses the exact real error to fix the code.")
             error_input = st.text_area("LeetCode error output:", height=120, key="error_input_box", label_visibility="collapsed")
             if st.button("🔧 Fix My Solution", type="primary", use_container_width=True):
+                log.info("User Action: Submit LeetCode Error")
                 if not error_input.strip():
                     st.warning("Paste your error output first.")
                 else:
