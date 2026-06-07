@@ -119,7 +119,7 @@ def _sync_problem():
         st.session_state.execution_output = None
 
 TOC_MD = """**Quick Navigation:**
-[Analysis](#1-problem-analysis) · [Algorithm](#2-algorithm-walkthrough) · [Code](#3-the-code) · [Breakdown](#4-line-by-line-breakdown) · [Trace](#5-trace-and-complexity) · [Takeaway](#6-takeaway-and-community)
+[Problem](#1-what-we-re-solving) · [Key Idea](#2-the-key-idea) · [Approach](#3-the-approach) · [Code](#4-the-code) · [How It Works](#5-how-it-works) · [Complexity](#6-complexity) · [Takeaway](#7-the-takeaway)
 
 ---
 """
@@ -144,7 +144,7 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
             new_text = call_ai(fix_prompt, user_key)
             t1 = time.time()
             # Extract the main solution code robustly
-            code_section_match = re.search(r"3\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
+            code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
             if code_section_match:
                 st.session_state.raw_code = code_section_match.group(1).strip()
             else:
@@ -287,15 +287,44 @@ if hint_button and problem_text:
         st.error("Too many requests! Please wait a moment.")
         st.stop()
         
-    hint_prompt = f"""You are a LeetCode Grandmaster and patient tutor. The student wants to solve this themselves in {st.session_state.language} — give hints ONLY. No code.
+    hint_prompt = f"""You are a warm, patient coding tutor helping a student solve a LeetCode problem in {st.session_state.language}. The student wants to figure it out themselves — give hints ONLY, never the full solution.
+
+CRITICAL RULES:
+- Do NOT write any code. Not even pseudocode. Not even a function signature.
+- Do NOT give away the algorithm directly. Guide them to discover it.
+- DO explain every technical term you use. If you mention "hash map", explain what it is in one sentence.
+- DO use real-world analogies for every concept.
+- DO be encouraging. The student is learning.
+
 <user_problem>
 {problem_text}
 </user_problem>
-1. What's This Problem Really Asking?
-2. Concepts You'll Need
-3. Step-by-Step Thinking Path
-4. Common Pitfalls
-CRITICAL: Do NOT write any code."""
+
+Follow this EXACT structure:
+
+## 🔍 What's Really Being Asked?
+In 2-3 plain English sentences, explain what the problem is REALLY asking. Strip away the technical jargon. A non-programmer should understand this paragraph.
+
+## 🧩 The ONE Key Concept
+Identify the single most important concept or data structure needed. Explain it from scratch:
+- **What is it?** (1 sentence, plain English)
+- **Real-world analogy** (1 sentence — like explaining to a friend)
+- **Why this problem needs it** (1 sentence)
+Max 3 sentences total. Do NOT list multiple concepts. Pick the ONE that matters most.
+
+## 🚶 A Nudge in the Right Direction
+Give 2-3 gentle guiding questions or observations. NOT steps. NOT instructions. Think of it as:
+- "What if you tried...?"
+- "Have you considered...?"
+- "Notice that..."
+
+## ⚠️ The Trap to Avoid
+Name the single most common mistake or wrong approach. Explain WHY it's wrong in 1-2 sentences. This saves the student hours of debugging.
+
+## 💪 You've Got This
+One encouraging sentence. Remind them they're closer than they think.
+
+IMPORTANT: Keep the entire response under 250 words. Be concise but warm. Every sentence should either teach something or encourage."""
     try:
         with st.spinner("Analyzing problem and generating hints..."):
             t0 = time.time()
@@ -342,7 +371,7 @@ elif solve_button and problem_text:
         st.session_state.current_hints = None
         
         # Extract the main solution code robustly
-        code_section_match = re.search(r"3\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
+        code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
         if code_section_match:
             st.session_state.raw_code = code_section_match.group(1).strip()
         else:
