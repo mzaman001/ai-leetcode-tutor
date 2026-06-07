@@ -207,9 +207,12 @@ Pick the simplest meaningful input. Trace step-by-step:
 - **Time:** Why O(...)? Plain English.
 - **Space:** Where does the memory come from?
 
-## 💡 8. Key Takeaway
+## 💡 8. Key Takeaway & Community Insight
 One sentence for similar future problems.
 {lessons_context}
+
+IMPORTANT INSTRUCTION: Search your knowledge base for the most upvoted and famous "Community Solutions" or discussion comments for this specific problem (e.g., clever tricks, 1-liners, or brilliant analogies). 
+If a community insight provides a better perspective or clever optimization, weave it into the "Step-by-Step Explanation" or "The Code" intelligently, giving explicit credit to the community (e.g., "A brilliant trick from the community..."). DO NOT change the 8-step structure of this response.
 
 <user_problem>
 {problem_text}
