@@ -55,6 +55,7 @@ If you learn a new trick from a failed attempt, you can submit your terminal out
 ## ✨ Features
 
 - **Multi-Language Support:** Tutor supports Python, JavaScript, Java, C++, Go, and Rust. Local execution supported for Python and JavaScript.
+- **Community Solutions Integration:** Automatically searches its vast parametric knowledge base for famous LeetCode tricks (e.g., StefanPochmann's 1-liners) and weaves them directly into the explanation.
 - **True IDE Aesthetics:** Cohesive, deep slate VS Code AMOLED theme with vibrant Fira Code typography and amber accents.
 - **Chat-Not-Chat Layout:** Cleanly separates the problem description from the massive, hand-holding tutor explanations.
 - **BYOK (Bring Your Own Key) Failsafe:** A sleek sidebar toggle allows power users to bypass the free-tier rate limits by injecting their own API keys dynamically.
