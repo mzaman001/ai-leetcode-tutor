@@ -3,9 +3,10 @@ import tempfile
 import subprocess
 import sys
 import os
+import shutil
 
-FORBIDDEN_IMPORTS = {'os', 'sys', 'subprocess', 'shutil', 'pty', 'pathlib', 'socket'}
-FORBIDDEN_FUNCTIONS = {'open', 'eval', 'exec', 'compile', '__import__'}
+FORBIDDEN_IMPORTS = {'os', 'sys', 'subprocess', 'shutil', 'pty', 'pathlib', 'socket', 'threading', 'multiprocessing', 'importlib', 'pickle', 'urllib', 'requests', 'http', 'ftplib', 'telnetlib'}
+FORBIDDEN_FUNCTIONS = {'open', 'eval', 'exec', 'compile', '__import__', 'globals', 'locals', 'vars', 'getattr', 'setattr', 'delattr', 'memoryview', 'input'}
 
 class SecurityScanner(ast.NodeVisitor):
     def __init__(self):
@@ -25,7 +26,7 @@ class SecurityScanner(ast.NodeVisitor):
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name):
             if node.func.id in FORBIDDEN_FUNCTIONS:
-                self.errors.append(f"Security Error: Function '{node.func.id}' is blocked.")
+                self.errors.append(f"Security Error: Function '{node.func.id}()' is blocked.")
         self.generic_visit(node)
 
 def is_safe_python(code: str) -> tuple[bool, str]:
@@ -41,6 +42,9 @@ def is_safe_python(code: str) -> tuple[bool, str]:
         return False, "\n".join(scanner.errors)
     return True, ""
 
+def check_node_available():
+    return shutil.which("node") is not None
+
 def execute_code(code: str, language: str = "Python", timeout: int = 10) -> dict:
     """
     Runs code in a subprocess with a timeout.
@@ -54,6 +58,12 @@ def execute_code(code: str, language: str = "Python", timeout: int = 10) -> dict
         suffix = ".py"
         cmd_runner = [sys.executable]
     elif language == "JavaScript":
+        if not check_node_available():
+            return {
+                "stdout": "",
+                "stderr": "Node.js is not installed. Install it from https://nodejs.org/",
+                "success": False
+            }
         suffix = ".js"
         cmd_runner = ["node"]
     else:
