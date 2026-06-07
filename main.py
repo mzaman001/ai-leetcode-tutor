@@ -7,7 +7,7 @@ from logger import log
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from executor import execute_code
 from ai_client import (
-    call_ai, check_guardrail, build_solve_prompt, 
+    call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
     build_harness_prompt, build_fix_prompt,
     BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
@@ -185,7 +185,7 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
         try:
             new_text = call_ai(fix_prompt, user_key)
             # Extract the main solution code robustly
-            code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
+            code_section_match = re.search(r"3\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
             if code_section_match:
                 st.session_state.raw_code = code_section_match.group(1).strip()
             else:
@@ -264,13 +264,6 @@ if hint_button and problem_text:
         st.error("Too many requests! Please wait a moment.")
         st.stop()
         
-    with st.spinner("Checking input..."):
-        if not check_guardrail(problem_text, user_gemini_key):
-            st.session_state.current_solution = None
-            st.session_state.current_hints = None
-            st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
-            st.stop()
-
     hint_prompt = f"""You are a LeetCode Grandmaster and patient tutor. The student wants to solve this themselves in {st.session_state.language} — give hints ONLY. No code.
 <user_problem>
 {problem_text}
@@ -281,8 +274,14 @@ if hint_button and problem_text:
 4. Common Pitfalls
 CRITICAL: Do NOT write any code."""
     try:
-        with st.spinner("Thinking through hints..."):
-            result = call_ai(hint_prompt, user_gemini_key)
+        with st.spinner("Analyzing problem and generating hints (Parallelized)..."):
+            is_valid, result = call_ai_with_guardrail(hint_prompt, problem_text, user_gemini_key)
+            if not is_valid:
+                st.session_state.current_solution = None
+                st.session_state.current_hints = None
+                st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
+                st.stop()
+                
         st.session_state.current_hints = result
         st.session_state.current_solution = None
         st.rerun()
@@ -295,26 +294,26 @@ elif solve_button and problem_text:
         st.error("Too many requests! Please wait a moment.")
         st.stop()
 
-    with st.spinner("Checking input..."):
-        if not check_guardrail(problem_text, user_gemini_key):
-            st.session_state.current_solution = None
-            st.session_state.current_hints = None
-            st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
-            st.stop()
-
     st.session_state.attempt_errors = []
     st.session_state.lesson_saved = False
 
     solve_prompt = build_solve_prompt(problem_text, st.session_state.language, get_lessons_context())
     
     try:
-        with st.spinner(f"Generating {st.session_state.language} lesson..."):
-            result = call_ai(solve_prompt, user_gemini_key)
+        with st.spinner(f"Generating {st.session_state.language} lesson (Parallelized)..."):
+            is_valid, result = call_ai_with_guardrail(solve_prompt, problem_text, user_gemini_key)
+            if not is_valid:
+                st.session_state.current_solution = None
+                st.session_state.current_hints = None
+                st.session_state.raw_code = ""
+                st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
+                st.stop()
 
-        result = re.sub(r"<scratchpad>.*?</scratchpad>", "", result, flags=re.IGNORECASE | re.DOTALL)
+        st.session_state.current_solution = result
+        st.session_state.current_hints = None
         
         # Extract the main solution code robustly
-        code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
+        code_section_match = re.search(r"3\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
         if code_section_match:
             st.session_state.raw_code = code_section_match.group(1).strip()
         else:
