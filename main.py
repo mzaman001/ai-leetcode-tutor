@@ -118,6 +118,14 @@ def _sync_problem():
         st.session_state.lesson_saved = False
         st.session_state.execution_output = None
 
+def _sync_language():
+    st.session_state.current_solution = None
+    st.session_state.current_hints = None
+    st.session_state.raw_code = ""
+    st.session_state.attempt_errors = []
+    st.session_state.lesson_saved = False
+    st.session_state.execution_output = None
+
 TOC_MD = """**Quick Navigation:**
 [Problem](#1-what-we-re-solving) · [Key Idea](#2-the-key-idea) · [Approach](#3-the-approach) · [Code](#4-the-code) · [How It Works](#5-how-it-works) · [Complexity](#6-complexity) · [Takeaway](#7-the-takeaway)
 
@@ -252,8 +260,10 @@ header_col1, header_col2 = st.columns([2, 1])
 with header_col1:
     st.markdown("# 🤖 CodeUnfold")
 with header_col2:
-    st.session_state.language = st.selectbox(
+    st.selectbox(
         "Language", ["Python", "JavaScript", "Java", "C++", "Go", "Rust"],
+        key="language",
+        on_change=_sync_language,
         label_visibility="collapsed"
     )
     if st.session_state.language not in ["Python", "JavaScript"]:
@@ -283,6 +293,9 @@ with btn_col3:
 
 if hint_button and problem_text:
     log.info(f"User Action: Request Hint - Language: {st.session_state.language}")
+    if st.session_state.current_hints:
+        st.rerun()  # Anti-spam cache hit: already generated
+        
     if not st.session_state.ai_limiter.allow():
         st.error("Too many requests! Please wait a moment.")
         st.stop()
@@ -335,6 +348,9 @@ State the target Time and Space complexity they should aim for (e.g., "Aim for O
 
 elif solve_button and problem_text:
     log.info(f"User Action: Reveal Solution - Language: {st.session_state.language}")
+    if st.session_state.current_solution:
+        st.rerun()  # Anti-spam cache hit: already generated
+
     if not st.session_state.ai_limiter.allow():
         st.error("Too many requests! Please wait a moment.")
         st.stop()
