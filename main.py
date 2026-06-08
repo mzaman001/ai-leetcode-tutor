@@ -73,15 +73,70 @@ st.markdown("""
     /* Typography Hierarchy */
     .markdown-text-container h2 { border-left: 4px solid #f59e0b !important; padding-left: 12px !important; background: rgba(245, 158, 11, 0.05); margin-top: 2rem !important; }
     .markdown-text-container h3 { font-family: 'Fira Code', monospace !important; color: #e2e8f0 !important; margin-top: 1.5rem !important; }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .stApp::before { display: none !important; }
+        [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
+        [data-testid="stChatMessage"] { padding: 12px 16px !important; }
+        .stTextArea textarea { min-height: 100px !important; }
+    }
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .stApp::before { display: none !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 
+SESSION_AI_CALL_LIMIT = 5
+
+def _check_session_limit() -> bool:
+    return st.session_state.get("session_ai_calls", 0) < SESSION_AI_CALL_LIMIT
+
+def _increment_session_calls():
+    st.session_state.session_ai_calls = st.session_state.get("session_ai_calls", 0) + 1
+
+def _show_session_limit_warning():
+    used = st.session_state.get("session_ai_calls", 0)
+    remaining = SESSION_AI_CALL_LIMIT - used
+    if remaining <= 2:
+        st.info(
+            f"💡 **{remaining} free AI call{'s' if remaining != 1 else ''} remaining** this session. "
+            "Add your own free Groq API key in ⚙️ **Settings** (sidebar) for unlimited access."
+        )
+
+def _show_error(e: Exception, context: str = ""):
+    err = str(e).lower()
+    if "rate" in err or "429" in err or "resource_exhausted" in err:
+        st.error("⏳ Rate limit reached. Please wait a moment and try again.")
+    elif "503" in err or "unavailable" in err or "busy" in err:
+        st.error("🔄 AI is temporarily under high load. Please try again in 10–15 seconds.")
+    elif "timeout" in err:
+        st.error("⏱️ Request timed out. Please try again.")
+    elif "api" in err or "key" in err or "auth" in err:
+        st.error("🔑 API key issue. Please check your API keys in the sidebar.")
+    else:
+        st.error("❌ Something went wrong. Please try again.")
+        log.error(f"{context}: {e}")
+
+
 # Initialize AI clients on start
 _default_gemini, _groq_client = get_clients()
-if not _default_gemini:
-    st.warning("⚠️ `GEMINI_API_KEY` environment variable is not set.")
+
+if not _default_gemini and not _groq_client:
+    st.error("🔑 No API keys configured. The app can't function without at least one.")
+    st.markdown("""
+    **Get a free Groq key in 30 seconds (recommended):**
+    1. Go to [console.groq.com](https://console.groq.com)
+    2. Sign in → Create API Key → Copy it
+    3. Paste it below or add it to your `.env` file as `GROQ_API_KEY`
+    """)
+    user_key_setup = st.text_input("Paste your Groq or Gemini API key here to continue:", type="password")
     st.stop()
+elif not _default_gemini:
+    st.sidebar.warning("⚠️ Gemini key not set. Using Groq only.")
+elif not _groq_client:
+    st.sidebar.warning("⚠️ Groq key not set. Using Gemini only (slower).")
 
 
 # ---------- Session State ----------
@@ -106,6 +161,7 @@ if "ai_limiter" not in st.session_state:
     from rate_limiter import RateLimiter
     st.session_state.ai_limiter = RateLimiter(max_calls=15, window_seconds=60)
     st.session_state.exec_limiter = RateLimiter(max_calls=10, window_seconds=60)
+    st.session_state.session_ai_calls = 0  # Per-visitor cap counter
 
 def _sync_problem():
     new_text = st.session_state._problem_widget
@@ -209,7 +265,8 @@ with st.sidebar:
         if user_gemini_key:
             st.toast("Using your personal Gemini key!", icon="✅")
     
-    with st.expander("🧠 Saved Lessons", expanded=True):
+    with st.expander("🧠 Session Memory", expanded=True):
+        st.caption("Lessons save for this session. Persist longer by self-hosting.")
         context = get_lessons_context()
         if context:
             lessons = [line.strip("- ") for line in context.split("\n") if line.startswith("- ")]
@@ -273,6 +330,7 @@ st.markdown("### Problem Input")
 st.text_area(
     "Paste your coding problem here:",
     height=150,
+    max_chars=5000,
     key="_problem_widget",
     value=st.session_state.problem_text,
     on_change=_sync_problem,
@@ -290,15 +348,50 @@ with btn_col2:
 with btn_col3:
     st.empty()
 
+# ---------- Onboarding Welcome ----------
+if not problem_text:
+    st.markdown("---")
+    st.markdown("### 👋 Welcome to CodeUnfold")
+    st.markdown("""
+    **How it works:**
+    1. Paste any LeetCode problem (description + starter code template works best)
+    2. Click **Get Hints** to get guided nudges and solve it yourself
+    3. Click **Reveal Solution** for a full step-by-step lesson with analogies
+    4. Run the code locally to verify it works, then save it to memory
+    """)
+    st.markdown("### 🚀 Try it now with an example")
+    ex_col1, ex_col2 = st.columns(2)
+    with ex_col1:
+        if st.button("🔢 Two Sum", use_container_width=True):
+            st.session_state.problem_text = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice.
+
+Example: Input: nums = [2,7,11,15], target = 9 -> Output: [0,1]
+
+class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:"""
+            st.rerun()
+    with ex_col2:
+        if st.button("💞 Valid Parentheses", use_container_width=True):
+            st.session_state.problem_text = """Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. An input string is valid if open brackets are closed by the same type of brackets, and in the correct order.
+
+Example: Input: s = "()[]{}" -> Output: true
+
+class Solution:
+    def isValid(self, s: str) -> bool:"""
+            st.rerun()
+
 
 if hint_button and problem_text:
     log.info(f"User Action: Request Hint - Language: {st.session_state.language}")
     if st.session_state.current_hints:
-        st.rerun()  # Anti-spam cache hit: already generated
-        
-    if not st.session_state.ai_limiter.allow():
-        st.error("Too many requests! Please wait a moment.")
+        st.rerun()  # Already generated, just display
+    if not _check_session_limit():
+        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Groq API key in ⚙️ **Settings** in the sidebar for unlimited access.")
         st.stop()
+    if not st.session_state.ai_limiter.allow():
+        st.error("⏳ Too many requests! Please wait a moment.")
+        st.stop()
+    _show_session_limit_warning()
         
     hint_prompt = f"""You are an elite coding tutor helping a student solve a LeetCode problem in {st.session_state.language}. They want actual, concrete, actionable hints to get un-stuck.
 
@@ -310,7 +403,7 @@ CRITICAL RULES:
 - Keep the entire response under 250 words.
 
 <user_problem>
-{problem_text}
+{_sanitize_input(problem_text)}
 </user_problem>
 
 Follow this EXACT structure:
@@ -340,19 +433,22 @@ State the target Time and Space complexity they should aim for (e.g., "Aim for O
                 st.stop()
                 
         result += f"\n\n---\n*⏱️ Hints generated in {t1-t0:.1f}s*"
+        _increment_session_calls()
         st.session_state.current_hints = result
         st.session_state.current_solution = None
         st.rerun()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        _show_error(e, "hint generation")
 
 elif solve_button and problem_text:
     log.info(f"User Action: Reveal Solution - Language: {st.session_state.language}")
     if st.session_state.current_solution:
-        st.rerun()  # Anti-spam cache hit: already generated
-
+        st.rerun()  # Already generated, just display
+    if not _check_session_limit():
+        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Groq API key in ⚙️ **Settings** in the sidebar for unlimited access.")
+        st.stop()
     if not st.session_state.ai_limiter.allow():
-        st.error("Too many requests! Please wait a moment.")
+        st.error("⏳ Too many requests! Please wait a moment.")
         st.stop()
 
     st.session_state.attempt_errors = []
@@ -373,6 +469,7 @@ elif solve_button and problem_text:
                 st.stop()
 
         result = TOC_MD + result + f"\n\n---\n*⏱️ Lesson generated in {t1-t0:.1f}s*"
+        _increment_session_calls()
         st.session_state.current_solution = result
         st.session_state.current_hints = None
         
@@ -390,7 +487,7 @@ elif solve_button and problem_text:
         st.session_state.lesson_saved = False
         st.rerun()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        _show_error(e, "solution generation")
 
 
 # ---------- Display Hints ----------
@@ -528,8 +625,8 @@ if st.session_state.current_solution:
                             st.code(out["stderr"], language="text")
                             if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
                                 st.session_state.attempt_errors.append(out["stderr"].strip())
-                            st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
-                            _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
+                                st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
+                                _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
                     else:
                         st.warning("Code ran but produced no output.")
 

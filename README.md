@@ -1,101 +1,96 @@
-# 🤖 CodeUnfold
+# CodeUnfold — AI LeetCode Tutor That Actually Teaches
 
-![UI Showcase](https://img.shields.io/badge/UI-AMOLED_Chat-black?style=for-the-badge)
-![Tech Stack](https://img.shields.io/badge/Tech-Python_|_Streamlit_|_SQLite-blue?style=for-the-badge)
-![AI Models](https://img.shields.io/badge/AI-Groq_Llama3_|_Gemini_Flash-orange?style=for-the-badge)
-![Performance](https://img.shields.io/badge/Performance-Zero_Budget_|_Max_Speed-brightgreen?style=for-the-badge)
+> Paste any LeetCode problem. Get a step-by-step lesson that teaches you how to solve it — not just the answer.
 
-A highly advanced AI coding tutor built to solve complex LeetCode problems optimally and teach them step-by-step using a structured, beginner-friendly "Hand-Holding" format.
-
-Unlike standard LLM wrappers, this application utilizes a **Zero-Budget High-Speed Pipeline** and **Verified Community Knowledge** to guarantee algorithmic accuracy by heavily prioritizing pre-trained community solutions (e.g., NeetCode, famous GitHub repos) over raw AI hallucination.
+![CodeUnfold Demo](https://img.shields.io/badge/built_with-Streamlit-ff4b4b?style=flat-square) ![Free](https://img.shields.io/badge/cost-100%25_free-22c55e?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
 ---
 
-## ⚡ Speed & Cost Optimizations (Zero Budget Architecture)
+## What It Does
 
-This app is heavily optimized to run at maximum speed using entirely free-tier API keys:
-
-1. **Hardware-Accelerated Fallback Chain:** The app tries **Groq's LPU hardware** first (Llama 3.3 70B) for blistering speed (300+ tokens/sec). If Groq rate-limits the user, it silently and instantly reroutes to **Google Gemini 2.5 Flash** as a reliable, massive rate-limit buffer.
-2. **Parallelized Guardrails:** Malicious prompt detection and actual code generation fire simultaneously via threading, saving 1-2 seconds per request.
-3. **Prompt Compression:** AI instructions are mathematically compressed to generate exactly what is needed with ~13% fewer output tokens, guaranteeing lightning-fast TTFT (Time To First Token).
-
----
-
-## 🏗️ The Multi-Agent Architecture
-
-### 1. The Verified Tutor (Primary)
-When a problem is submitted, the AI is blocked from "inventing" algorithms. It is strictly commanded to recall verified solutions from its training data (LeetCode discussions, famous GitHub repos) and teach that optimal code line-by-line.
-
-### 2. The Auto-Correction Loop
-If your solution fails, paste the exact LeetCode error output. The AI reviews your code, the exact raw error string, and previously learned lessons to surgically patch the bug.
-
-### 3. Persistent SQLite Memory
-When you learn a new trick or solve a bug, you can save the lesson. A strict "Bouncer" AI verifies the lesson to prevent trolls. If verified, the AI extracts a generalized lesson and saves it to a **local SQLite database** (`lessons.db`), seamlessly injecting it into future prompts so you never make the same mistake twice.
+| Feature | Description |
+|---|---|
+| **💡 Get Hints** | Tells you the exact Data Structure, algorithm, first steps, and target complexity — without spoiling the solution |
+| **🔍 Reveal Solution** | Full step-by-step lesson with real-world analogies. Every term explained inline. No Googling needed. |
+| **▶ Run Code** | Execute the generated solution locally to verify it works before submitting |
+| **🔧 Fix Loop** | Paste a LeetCode error — the AI diagnoses and fixes it automatically |
+| **🧠 Session Memory** | Save proven solutions. The AI remembers your past mistakes and avoids them in future explanations |
 
 ---
 
-## 🛡️ Security & Reliability
+## Quick Start (30 seconds)
 
-- **Strict AST Sandboxing:** Safely execute Python code locally. The custom sandbox physically blocks dangerous imports (`os`, `sys`, `subprocess`) and built-in functions (`eval`, `exec`) using AST NodeVisitors.
-- **Prompt Injection Defense:** Input is heavily sanitized (`<user_problem>` tagging, tag stripping) to prevent malicious users from breaking the guardrails.
-- **XSRF & CORS Protection:** Fully configured for safe deployment on Streamlit Community Cloud.
-- **Rate Limiting:** Built-in Token Bucket rate limiters prevent API spam and save your free-tier quotas.
+**1. Get a free API key**
+- [Groq](https://console.groq.com) — Fast, free, no credit card (recommended)
+- [Google AI Studio](https://aistudio.google.com) — Generous free tier (backup)
 
----
+**2. Clone and run**
+```bash
+git clone https://github.com/mzaman001/CodeUnfold.git
+cd CodeUnfold
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and add your API key
+python -m streamlit run main.py
+```
 
-## 🛠️ Technical Implementation
-
-**Frontend:**
-- Streamlit
-- Custom VS Code-inspired Minimum Dark Pro theme
-
-**Backend:**
-- Python 3.x
-- SQLite (Local Database with `UNIQUE` constraints and threaded caching)
-- Secure AST Sandboxing (Python) & Node.js subprocess (JavaScript)
-
-**AI Pipeline:**
-- Groq API (Llama 3 Inference)
-- Gemini API (Flash models)
-- Concurrent execution via `ThreadPoolExecutor`
+**3. Open** `http://localhost:8501` and paste any LeetCode problem.
 
 ---
 
-## 🚀 Deployment (Streamlit Community Cloud)
+## How It's Different
 
-To deploy this app for free on Streamlit Community Cloud:
+Most AI tools just give you the answer. CodeUnfold teaches:
 
-1. Connect your GitHub repository to Streamlit.
-2. Go to **Advanced Settings > Secrets** in your Streamlit dashboard.
-3. Paste the following TOML configuration with your free API keys:
-   ```toml
-   GEMINI_API_KEY = "your_google_gemini_key_here"
-   GROQ_API_KEY = "your_groq_key_here"
-   ```
-4. Click **Deploy**. The app handles the rest!
+- **Concept-first explanations** — Every term gets an analogy. A hash map is explained *"like a phone book where you search by name instead of flipping pages."*
+- **Hints that actually help** — Get the right Data Structure, the algorithm name, the first 2 steps, and the target complexity. Concrete, not vague.
+- **Groq-powered speed** — 2–4 second responses via Llama 3.3 70B, with Gemini Flash as automatic backup
+- **Fix loop** — Paste any LeetCode error output. The AI sees the exact failure and fixes the code
+- **100% free** — Runs entirely on free-tier APIs. No credit card, no subscription
 
 ---
 
-## 💻 Local Setup
+## Tech Stack
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/CodeUnfold.git
-   cd CodeUnfold
-   ```
+| Layer | Technology |
+|---|---|
+| Frontend | Streamlit |
+| Primary AI | Groq (Llama 3.3 70B) |
+| Backup AI | Google Gemini 2.5 Flash |
+| Code Execution | Python subprocess + AST sandbox |
+| Memory | SQLite (local) |
+| Security | Input sanitization + guardrail classifier + rate limiting |
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+---
 
-3. Create a `.env` file in the root directory and add your API keys:
-   ```ini
-   GEMINI_API_KEY=your_gemini_key_here
-   GROQ_API_KEY=your_groq_key_here
-   ```
+## Self-Hosting
 
-4. Run the application:
-   ```bash
-   python -m streamlit run main.py
-   ```
+Add your API keys to `.env`:
+```
+GEMINI_API_KEY=your_key_here
+GROQ_API_KEY=your_key_here
+```
+
+Then run:
+```bash
+python -m streamlit run main.py
+```
+
+---
+
+## Architecture Notes
+
+- **Guardrail classifier**: Every input is checked by a fast Groq Llama model before the main AI call. Non-coding inputs are rejected without burning quota.
+- **AST sandbox**: Python code is scanned for dangerous imports (`os`, `subprocess`, `socket`, etc.) before execution.
+- **Rate limiting**: Per-session call caps + per-minute sliding window limiters protect shared API quota.
+- **Prompt injection defense**: User input is sanitized and isolated inside `<user_problem>` XML tags with injection phrase detection.
+
+---
+
+## Contributing
+
+PRs welcome. Open an issue first for major changes.
+
+---
+
+*Built by [Muhammad Zaman](https://github.com/mzaman001)*

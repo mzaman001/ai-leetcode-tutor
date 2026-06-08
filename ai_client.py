@@ -135,9 +135,8 @@ def call_ai(prompt: str, user_key: str = None) -> str:
     log.error("AI Error: All providers exhausted. Raising exception.")
     groq_note = "Groq backup is unavailable (no API key)." if not _groq_client else "Groq backup is also rate-limited."
     raise Exception(
-        f"🛑 All AI providers temporarily unavailable. Gemini is rate-limited and {groq_note}\n\n"
-        f"Paste your own Gemini API key into the sidebar to continue instantly.\n"
-        f"(Debug: {str(last_error)[:120]})"
+        f"🛑 All AI providers are temporarily busy. {groq_note}\n\n"
+        f"Please try again in 30 seconds, or paste your own Gemini API key into the sidebar to continue instantly."
     )
 
 
@@ -178,17 +177,12 @@ def _sanitize_input(text: str) -> str:
     return text
 
 def call_ai_with_guardrail(prompt: str, problem_text: str, user_key: str = None) -> tuple[bool, str]:
-    """Runs guardrail and main generation in parallel. Returns (is_valid, result)."""
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_guard = executor.submit(check_guardrail, problem_text, user_key)
-        future_ai = executor.submit(call_ai, prompt, user_key)
-        
-        guard_result = future_guard.result()
-        if not guard_result:
-            return False, None
-            
-        ai_result = future_ai.result()
-        return True, ai_result
+    """Runs guardrail first (sequential), then AI only if valid. Saves tokens on invalid inputs."""
+    is_valid = check_guardrail(problem_text, user_key)
+    if not is_valid:
+        return False, None
+    result = call_ai(prompt, user_key)
+    return True, result
 
 
 def build_solve_prompt(problem_text: str, language: str, lessons_context: str) -> str:

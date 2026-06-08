@@ -5,3 +5,9 @@ venv/
 *.pyc
 .DS_Store
 lessons.db
+*.db-journal
+*.db-wal
+*.db-shm
+codeunfold.log
+Thumbs.db
+Desktop.ini
