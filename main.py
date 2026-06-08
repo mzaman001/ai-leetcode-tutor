@@ -354,30 +354,34 @@ if not problem_text:
     st.markdown("### 👋 Welcome to CodeUnfold")
     st.markdown("""
     **How it works:**
-    1. Paste any LeetCode problem (description + starter code template works best)
+    1. Paste any LeetCode problem — include the starter code template for best results
     2. Click **Get Hints** to get guided nudges and solve it yourself
     3. Click **Reveal Solution** for a full step-by-step lesson with analogies
-    4. Run the code locally to verify it works, then save it to memory
+    4. Save proven approaches to session memory
     """)
     st.markdown("### 🚀 Try it now with an example")
     ex_col1, ex_col2 = st.columns(2)
     with ex_col1:
         if st.button("🔢 Two Sum", use_container_width=True):
-            st.session_state.problem_text = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice.
+            _text = """Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice.
 
 Example: Input: nums = [2,7,11,15], target = 9 -> Output: [0,1]
 
 class Solution:
     def twoSum(self, nums: List[int], target: int) -> List[int]:"""
+            st.session_state.problem_text = _text
+            st.session_state["_problem_widget"] = _text
             st.rerun()
     with ex_col2:
         if st.button("💞 Valid Parentheses", use_container_width=True):
-            st.session_state.problem_text = """Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. An input string is valid if open brackets are closed by the same type of brackets, and in the correct order.
+            _text = """Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. An input string is valid if open brackets are closed by the same type of brackets, and in the correct order.
 
 Example: Input: s = "()[]{}" -> Output: true
 
 class Solution:
     def isValid(self, s: str) -> bool:"""
+            st.session_state.problem_text = _text
+            st.session_state["_problem_widget"] = _text
             st.rerun()
 
 
