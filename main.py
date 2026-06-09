@@ -10,7 +10,7 @@ from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_less
 from executor import execute_code
 from ai_client import (
     call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
-    build_harness_prompt, build_fix_prompt,
+    build_harness_prompt, build_fix_prompt, _sanitize_input,
     BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
 
@@ -31,15 +31,7 @@ st.markdown("""
     ::selection { background: rgba(245, 158, 11, 0.3); color: #f8fafc; }
     section.main { overflow-anchor: none !important; }
 
-    /* Theme Overhaul */
-    .stApp { background: linear-gradient(135deg, #0f172a 0%, #0a0a0f 100%) !important; }
-    .stApp::before {
-        content: 'CodeUnfold'; position: fixed; top: 0; left: 0; right: 0; height: 48px;
-        background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center;
-        padding: 0 24px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px;
-        color: #f8fafc; z-index: 999;
-    }
-    
+    /* Typography Hierarchy */
     h1, h2, h3, p, li, label { font-family: 'Inter', -apple-system, sans-serif !important; }
 
     .stTextArea textarea {
@@ -71,18 +63,29 @@ st.markdown("""
     .stSpinner > div > div > div { animation: pulse 1.5s ease-in-out infinite !important; }
 
     /* Typography Hierarchy */
-    .markdown-text-container h2 { border-left: 4px solid #f59e0b !important; padding-left: 12px !important; background: rgba(245, 158, 11, 0.05); margin-top: 2rem !important; }
-    .markdown-text-container h3 { font-family: 'Fira Code', monospace !important; color: #e2e8f0 !important; margin-top: 1.5rem !important; }
+    .markdown-text-container h2 {
+        border-left: 4px solid #f59e0b !important;
+        padding-left: 12px !important;
+        background: rgba(245, 158, 11, 0.05);
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+        margin-top: 2rem !important;
+        margin-bottom: 1rem !important;
+        font-size: 1.4rem !important;
+    }
+    .markdown-text-container h3 {
+        font-family: 'Fira Code', monospace !important;
+        font-size: 1.2rem !important;
+        color: #e2e8f0 !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 0.8rem !important;
+    }
 
     /* Mobile Responsive */
     @media (max-width: 768px) {
-        .stApp::before { display: none !important; }
         [data-testid="stHorizontalBlock"] { flex-direction: column !important; }
         [data-testid="stChatMessage"] { padding: 12px 16px !important; }
         .stTextArea textarea { min-height: 100px !important; }
-    }
-    @media (min-width: 769px) and (max-width: 1024px) {
-        .stApp::before { display: none !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -283,31 +286,6 @@ st.markdown(f"""
 <style>
     .stApp {{ background-color: {bg_color} !important; transition: background-color 0.3s; }}
     section[data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid #1a1a24 !important; }}
-    
-    /* Typography Hierarchy */
-    .markdown-text-container h2 {{
-        border-left: 4px solid #f59e0b !important;
-        padding-left: 12px !important;
-        background: rgba(245, 158, 11, 0.05);
-        padding-top: 4px; padding-bottom: 4px;
-        margin-top: 2rem !important; margin-bottom: 1rem !important;
-        font-size: 1.4rem !important;
-    }}
-    .markdown-text-container h3 {{
-        font-family: 'Fira Code', monospace !important;
-        font-size: 1.2rem !important;
-        color: #e2e8f0 !important;
-        margin-top: 1.5rem !important; margin-bottom: 0.8rem !important;
-    }}
-
-    /* Animated Spinners */
-    @keyframes pulse {{
-        0%, 100% {{ opacity: 0.4; }}
-        50% {{ opacity: 1; }}
-    }}
-    .stSpinner > div > div > div {{
-        animation: pulse 1.5s ease-in-out infinite !important;
-    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -340,13 +318,11 @@ st.text_area(
 
 problem_text = st.session_state.problem_text
 
-btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1])
+btn_col1, btn_col2 = st.columns([1, 1])
 with btn_col1:
     hint_button = st.button("💡 Get Hints", use_container_width=True, type="secondary")
 with btn_col2:
     solve_button = st.button("🔍 Reveal Solution", use_container_width=True, type="primary")
-with btn_col3:
-    st.empty()
 
 # ---------- Onboarding Welcome ----------
 if not problem_text:
@@ -509,8 +485,6 @@ if st.session_state.current_solution:
         st.markdown(f"**Problem:** {problem_text[:80]}...")
 
     with st.chat_message("assistant", avatar="🤖"):
-        st.html('<script>setTimeout(function(){ window.parent.document.querySelector("section.main").scrollTo({top: 0, behavior: "smooth"}); }, 150);</script>')
-
         if st.session_state.show_update_alert:
             st.success("Solution updated based on your error report.")
             st.session_state.show_update_alert = False
