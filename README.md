@@ -98,6 +98,5 @@ Contributions are always welcome! Whether it's adding new language sandboxes, im
 ---
 
 <div align="center">
-  <p>Built with ❤️ by <a href="https://github.com/mzaman001">Muhammad Zaman</a></p>
   <p>If CodeUnfold helped you ace an interview, consider giving it a ⭐ on GitHub!</p>
 </div>
