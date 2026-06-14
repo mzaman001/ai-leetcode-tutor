@@ -6,7 +6,6 @@ import time
 import difflib
 from dotenv import load_dotenv
 from logger import log
-from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from ai_client import (
     call_ai, build_solve_prompt, 
     build_fix_prompt, _sanitize_input,
@@ -15,7 +14,6 @@ from ai_client import (
 )
 
 load_dotenv()
-init_db()
 
 st.set_page_config(page_title="CodeUnfold", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
@@ -93,20 +91,33 @@ st.markdown("""
 
 SESSION_AI_CALL_LIMIT = 5
 
-def _check_session_limit() -> bool:
+def _check_session_limit(user_key: str = None) -> bool:
+    if user_key:
+        return True # Unlimited if they provide their own key
     return st.session_state.get("session_ai_calls", 0) < SESSION_AI_CALL_LIMIT
 
 def _increment_session_calls():
     st.session_state.session_ai_calls = st.session_state.get("session_ai_calls", 0) + 1
 
-def _show_session_limit_warning():
+def _show_session_limit_warning(user_key: str = None):
+    if user_key:
+        return
     used = st.session_state.get("session_ai_calls", 0)
     remaining = SESSION_AI_CALL_LIMIT - used
     if remaining <= 2:
         st.info(
             f"💡 **{remaining} free AI call{'s' if remaining != 1 else ''} remaining** this session. "
-            "Add your own free Groq API key in ⚙️ **Settings** (sidebar) for unlimited access."
+            "Add your own free Gemini API key in ⚙️ **Settings** (sidebar) for unlimited access."
         )
+
+def _get_lessons_context() -> str:
+    """Retrieves recent lessons from ephemeral session state."""
+    lessons = st.session_state.get("lessons_memory", [])
+    if not lessons:
+        return ""
+    # Reverse to put oldest first among the 5 recent
+    recent_lessons = list(reversed(lessons[-5:]))
+    return "\n\nLESSONS FROM YOUR MEMORY (avoid repeating past mistakes):\n" + "\n".join(f"- {l}" for l in recent_lessons)
 
 def _show_error(e: Exception, context: str = ""):
     err = str(e).lower()
@@ -163,8 +174,8 @@ for key, default in _defaults.items():
 if "ai_limiter" not in st.session_state:
     from rate_limiter import RateLimiter
     st.session_state.ai_limiter = RateLimiter(max_calls=15, window_seconds=60)
-    st.session_state.exec_limiter = RateLimiter(max_calls=10, window_seconds=60)
     st.session_state.session_ai_calls = 0  # Per-visitor cap counter
+    st.session_state.lessons_memory = []  # Ephemeral memory for this session
 
 def _sync_problem():
     new_text = st.session_state._problem_widget
@@ -191,7 +202,7 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     
     fix_prompt = build_fix_prompt(
         prob_text, code_to_fix, error_history, 
-        st.session_state.language, get_lessons_context()
+        st.session_state.language, _get_lessons_context()
     )
     
     if not st.session_state.ai_limiter.allow():
@@ -270,7 +281,7 @@ with st.sidebar:
     
     with st.expander("🧠 Session Memory", expanded=True):
         st.caption("Lessons save for this session. Persist longer by self-hosting.")
-        context = get_lessons_context()
+        context = _get_lessons_context()
         if context:
             lessons = [line.strip("- ") for line in context.split("\n") if line.startswith("- ")]
             for l in lessons[:5]:
@@ -365,8 +376,8 @@ if hint_button and problem_text:
     log.info(f"User Action: Request Hint - Language: {st.session_state.language}")
     if st.session_state.current_hints:
         st.rerun()  # Already generated, just display
-    if not _check_session_limit():
-        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Groq API key in ⚙️ **Settings** in the sidebar for unlimited access.")
+    if not _check_session_limit(user_gemini_key):
+        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Gemini API key in ⚙️ **Settings** in the sidebar for unlimited access.")
         st.stop()
     if not st.session_state.ai_limiter.allow():
         st.error("⏳ Too many requests! Please wait a moment.")
@@ -392,8 +403,8 @@ elif solve_button and problem_text:
     log.info(f"User Action: Reveal Solution - Language: {st.session_state.language}")
     if st.session_state.current_solution:
         st.rerun()  # Already generated, just display
-    if not _check_session_limit():
-        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Groq API key in ⚙️ **Settings** in the sidebar for unlimited access.")
+    if not _check_session_limit(user_gemini_key):
+        st.warning(f"💡 You've used all {SESSION_AI_CALL_LIMIT} free AI calls for this session. Add your own free Gemini API key in ⚙️ **Settings** in the sidebar for unlimited access.")
         st.stop()
     if not st.session_state.ai_limiter.allow():
         st.error("⏳ Too many requests! Please wait a moment.")
@@ -402,7 +413,7 @@ elif solve_button and problem_text:
     st.session_state.attempt_errors = []
     st.session_state.lesson_saved = False
 
-    solve_prompt = build_solve_prompt(problem_text, st.session_state.language, get_lessons_context())
+    solve_prompt = build_solve_prompt(problem_text, st.session_state.language, _get_lessons_context())
     
     try:
         with st.spinner(f"Generating {st.session_state.language} lesson..."):
@@ -500,11 +511,10 @@ if st.session_state.current_solution:
 
         # Save Memory
         if st.session_state.get("lesson_saved", False):
-            st.success("✅ Saved to local SQLite database!", icon="🧠")
+            st.success("✅ Saved to session memory!", icon="🧠")
             if st.button("Undo (Remove from Memory)"):
-                last_id = st.session_state.get("last_saved_lesson_id", -1)
-                if last_id != -1:
-                    remove_lesson_from_db(last_id)
+                if st.session_state.lessons_memory:
+                    st.session_state.lessons_memory.pop()
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
@@ -517,9 +527,7 @@ if st.session_state.current_solution:
                 title = problem_text.split('\n')[0][:50] if problem_text else "Unknown Problem"
                 lesson = f"{title}: {takeaway_text}"
                 
-                lesson_id = save_lesson_to_db(lesson)
-                st.session_state.last_saved_lesson_id = lesson_id
-                st.session_state.last_saved_lesson_text = lesson
+                st.session_state.lessons_memory.append(lesson)
                 st.session_state.lesson_saved = True
                 st.balloons()
                 st.rerun()
