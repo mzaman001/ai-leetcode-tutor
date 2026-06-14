@@ -11,7 +11,7 @@ from ai_client import (
     call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
     build_fix_prompt, _sanitize_input,
     build_pedagogical_hint_prompt,
-    BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
+    GROQ_FAST_MODEL, get_clients
 )
 
 load_dotenv()
@@ -518,49 +518,21 @@ if st.session_state.current_solution:
                 st.session_state.lesson_saved = False
                 st.rerun()
         else:
-            if "save_toggle_key" not in st.session_state:
-                st.session_state.save_toggle_key = f"save_toggle_{uuid.uuid4().hex[:8]}"
-            toggle_key = st.session_state.save_toggle_key
-            show_save = st.toggle("💾 Save this approach to memory", key=toggle_key)
-            if show_save:
-                proof_text = st.text_area("Paste your execution output:", height=68, key="proof_input")
-                if st.button("Verify & Save", use_container_width=True, type="primary"):
-                    if not proof_text or len(proof_text.strip()) < 3:
-                        st.error("Please provide actual proof of execution.")
-                    elif not _groq_client:
-                        st.error("Groq API key required for Bouncer AI.")
-                    else:
-                        safe_code = (st.session_state.raw_code or st.session_state.current_solution)[:3000]
-                        bouncer_prompt = (
-                            f"You are a strict Bouncer AI. A student claims a {st.session_state.language} solution worked.\n"
-                            f'Proof: "{proof_text[:500]}"\n\n'
-                            f"Rules:\n"
-                            f"1. If proof is fake/troll, output: REJECT\n"
-                            f"2. If proof looks real, extract a 1-sentence lesson wrapped in <LESSON> tags.\n\n"
-                            f"Problem: <user_problem>{problem_text[:800]}</user_problem>\n"
-                            f"Code:\n```{st.session_state.language.lower()}\n{safe_code}\n```"
-                        )
-                        with st.spinner("Bouncer AI verifying..."):
-                            try:
-                                r = _groq_client.chat.completions.create(
-                                    messages=[{"role": "user", "content": bouncer_prompt}],
-                                    model=BOUNCER_MODEL,
-                                    temperature=0.1,
-                                )
-                                reply = r.choices[0].message.content.strip()
-                                if "REJECT" in reply:
-                                    st.error("🛑 Bouncer Rejected: That doesn't look like real execution output.")
-                                else:
-                                    m = re.search(r"<LESSON>(.*?)</LESSON>", reply, re.IGNORECASE | re.DOTALL)
-                                    lesson = "✅ PROVEN: " + (m.group(1).strip() if m else "Solution approach verified working.")
-                                    lesson_id = save_lesson_to_db(lesson)
-                                    st.session_state.last_saved_lesson_id = lesson_id
-                                    st.session_state.last_saved_lesson_text = lesson
-                                    st.session_state.lesson_saved = True
-                                    st.balloons()
-                                    st.rerun()
-                            except Exception as e:
-                                st.error(f"Bouncer AI error: {e}")
+            if st.button("💾 Save this approach to memory", use_container_width=True):
+                sol_text = st.session_state.current_solution
+                take_match = re.search(r"<takeaway>(.*?)</takeaway>", sol_text, re.DOTALL | re.IGNORECASE)
+                takeaway_text = take_match.group(1).strip() if take_match else "Saved solution approach."
+                
+                # Prepend the problem title (first line of problem text) to give context
+                title = problem_text.split('\n')[0][:50] if problem_text else "Unknown Problem"
+                lesson = f"{title}: {takeaway_text}"
+                
+                lesson_id = save_lesson_to_db(lesson)
+                st.session_state.last_saved_lesson_id = lesson_id
+                st.session_state.last_saved_lesson_text = lesson
+                st.session_state.lesson_saved = True
+                st.balloons()
+                st.rerun()
 
         # Manual Fix Expander
         with st.expander("🐛 Paste a LeetCode error to fix the solution"):

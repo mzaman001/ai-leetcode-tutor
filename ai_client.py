@@ -10,7 +10,6 @@ from logger import log
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
 GROQ_MAIN_MODEL = "llama-3.3-70b-versatile"
 GROQ_FAST_MODEL = "llama-3.1-8b-instant"
-BOUNCER_MODEL = GROQ_FAST_MODEL
 
 @st.cache_resource
 def get_clients():
