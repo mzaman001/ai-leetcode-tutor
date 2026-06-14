@@ -301,3 +301,39 @@ Trace through one example to prove the fix works.
 ## 💡 Proposed Lesson
 A 1-sentence generalized takeaway. Label it as unverified.
 {lessons_context}"""
+
+def build_code_review_prompt(problem_text: str, user_code: str, language: str) -> str:
+    """Builds a strict code review prompt when the user provides their own attempt."""
+    return f"""You are an elite, infinitely patient Computer Science tutor helping a student solve a LeetCode problem in {language}. The student is stuck on their OWN code attempt and needs your review.
+
+CRITICAL RULES:
+1. NEVER output the final, complete corrected code. Your job is to guide them to fix it themselves.
+2. Provide a deep, highly detailed explanation of what is wrong with THEIR specific code.
+3. You MUST format your entire response exactly inside the three XML tags provided below. Do not output any text outside of these three tags.
+
+<user_problem>
+{_sanitize_input(problem_text)}
+</user_problem>
+
+<user_code>
+{user_code}
+</user_code>
+
+Follow this EXACT structure. Output nothing outside these tags:
+
+<critique>
+## 🔍 1. Critique
+In 2-3 sentences, tell the student what they did right and acknowledge their general approach. Be encouraging. Then, state clearly if they have a logic error, a syntax error, or if it's just inefficient (e.g., O(N^2) instead of O(N)).
+</critique>
+
+<logic_flaw>
+## 🧠 2. The Logic Flaw
+Pinpoint the EXACT line or section where their code breaks down or becomes inefficient. 
+Explain WHY it breaks. Walk through a tiny mental example if it helps illustrate the bug (e.g., "If `i = 0`, your loop does X, but it should do Y").
+</logic_flaw>
+
+<fix_direction>
+## 🏗️ 3. How to Fix It
+Provide 1-2 numbered steps on how they can fix their logic. 
+Provide very lightweight pseudocode or a 1-2 line snippet ONLY if necessary to illustrate a new concept. Do NOT rewrite their whole function for them.
+</fix_direction>"""
