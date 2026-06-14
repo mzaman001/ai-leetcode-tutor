@@ -199,14 +199,6 @@ def _sync_language():
     st.session_state.execution_output = None
     st.session_state.user_code = ""
 
-def _sync_user_code():
-    st.session_state.current_solution = None
-    st.session_state.current_hints = None
-    st.session_state.raw_code = ""
-    st.session_state.attempt_errors = []
-    st.session_state.lesson_saved = False
-    st.session_state.execution_output = None
-
 def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
     code_to_fix = st.session_state.raw_code or "(code unavailable)"
@@ -327,34 +319,44 @@ with header_col2:
         st.caption("No local run support")
 
 st.markdown("### Problem Input")
-st.text_area(
-    "Paste your coding problem here:",
-    height=150,
-    max_chars=5000,
-    key="_problem_widget",
-    value=st.session_state.problem_text,
-    on_change=_sync_problem,
-    placeholder="Paste problem description + starter code template...\n\nTip: Include both the problem AND the starter code for best results.",
-    label_visibility="collapsed"
-)
+with st.form("input_form"):
+    st.text_area(
+        "Paste your coding problem here:",
+        height=150,
+        max_chars=5000,
+        key="_problem_widget",
+        placeholder="Paste problem description + starter code template...\n\nTip: Include both the problem AND the starter code for best results.",
+        label_visibility="collapsed"
+    )
+
+    st.text_area(
+        "Your Current Code (Optional):",
+        height=150,
+        max_chars=5000,
+        key="user_code",
+        placeholder="Paste your current attempt here if you want a code review instead of generic hints...",
+        label_visibility="visible"
+    )
+
+    btn_col1, btn_col2 = st.columns([1, 1])
+    with btn_col1:
+        hint_button = st.form_submit_button("💡 Get Hints", use_container_width=True, type="secondary")
+    with btn_col2:
+        solve_button = st.form_submit_button("🔍 Reveal Solution", use_container_width=True, type="primary")
+
+# Manual state sync when form is submitted
+if hint_button or solve_button:
+    new_text = st.session_state._problem_widget
+    if new_text != st.session_state.problem_text:
+        st.session_state.problem_text = new_text
+        st.session_state.current_solution = None
+        st.session_state.current_hints = None
+        st.session_state.raw_code = ""
+        st.session_state.attempt_errors = []
+        st.session_state.lesson_saved = False
+        st.session_state.execution_output = None
 
 problem_text = st.session_state.problem_text
-
-st.text_area(
-    "Your Current Code (Optional):",
-    height=150,
-    max_chars=5000,
-    key="user_code",
-    on_change=_sync_user_code,
-    placeholder="Paste your current attempt here if you want a code review instead of generic hints...",
-    label_visibility="visible"
-)
-
-btn_col1, btn_col2 = st.columns([1, 1])
-with btn_col1:
-    hint_button = st.button("💡 Get Hints", use_container_width=True, type="secondary")
-with btn_col2:
-    solve_button = st.button("🔍 Reveal Solution", use_container_width=True, type="primary")
 
 # ---------- Onboarding Welcome ----------
 if not problem_text:
