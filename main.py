@@ -11,6 +11,7 @@ from executor import execute_code
 from ai_client import (
     call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
     build_harness_prompt, build_fix_prompt, _sanitize_input,
+    build_pedagogical_hint_prompt,
     BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
 
@@ -373,34 +374,7 @@ if hint_button and problem_text:
         st.stop()
     _show_session_limit_warning()
         
-    hint_prompt = f"""You are an elite coding tutor helping a student solve a LeetCode problem in {st.session_state.language}. They want actual, concrete, actionable hints to get un-stuck.
-
-CRITICAL RULES:
-- Do NOT write the final code.
-- You CAN and SHOULD mention exact Data Structures (e.g., "Use a Hash Map") and Algorithms (e.g., "Use Two-Pointers").
-- You CAN give the first 1 or 2 concrete steps to start the algorithm.
-- Keep the tone encouraging but highly technical and focused on the code.
-- Keep the entire response under 250 words.
-
-<user_problem>
-{_sanitize_input(problem_text)}
-</user_problem>
-
-Follow this EXACT structure:
-
-## 🔍 The Core Intuition
-In 1-2 sentences, explain the "Aha!" moment or mental leap required to solve this problem optimally. What is the trick?
-
-## 🛠️ The Right Tool for the Job
-Explicitly name the primary Data Structure or Algorithm they should use. Explain exactly *why* it fits this problem perfectly (e.g. "We need O(1) lookups, so a Hash Map is perfect").
-
-## 🚀 How to Start
-Give the first 2 concrete steps in plain English. Example:
-1. Initialize a Hash Map to store the frequencies.
-2. Loop through the array once...
-
-## ⏱️ Target Complexity
-State the target Time and Space complexity they should aim for (e.g., "Aim for O(N) time and O(1) space")."""
+    hint_prompt = build_pedagogical_hint_prompt(problem_text, st.session_state.language)
     try:
         with st.spinner("Analyzing problem and generating hints..."):
             t0 = time.time()
