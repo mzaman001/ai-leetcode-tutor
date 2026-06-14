@@ -7,10 +7,9 @@ import difflib
 from dotenv import load_dotenv
 from logger import log
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
-from executor import execute_code
 from ai_client import (
     call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
-    build_harness_prompt, build_fix_prompt, _sanitize_input,
+    build_fix_prompt, _sanitize_input,
     build_pedagogical_hint_prompt,
     BOUNCER_MODEL, GROQ_FAST_MODEL, get_clients
 )
@@ -562,64 +561,6 @@ if st.session_state.current_solution:
                                     st.rerun()
                             except Exception as e:
                                 st.error(f"Bouncer AI error: {e}")
-
-        # Run Code
-        if st.session_state.raw_code and st.session_state.language in ["Python", "JavaScript"]:
-            with st.expander("▶ Run Code — Quick Sanity Check", expanded=bool(st.session_state.execution_output)):
-                st.info("⚠️ **This is a local sanity check only.** Passing here does **not** guarantee the code will pass on LeetCode.")
-                if st.button("▶ Run Code", type="primary", use_container_width=True, key="run_code_btn"):
-                    log.info(f"User Action: Run Code - Language: {st.session_state.language}")
-                    if not st.session_state.exec_limiter.allow():
-                        st.error("Too many execution requests! Please wait a moment.")
-                        st.stop()
-                    
-                    harness_prompt = build_harness_prompt(problem_text, st.session_state.raw_code, st.session_state.language)
-                    with st.spinner("Building test harness and running code..."):
-                        try:
-                            if _groq_client:
-                                harness_resp = _groq_client.chat.completions.create(
-                                    messages=[{"role": "user", "content": harness_prompt}],
-                                    model=GROQ_FAST_MODEL,
-                                    temperature=0.1,
-                                )
-                                runnable_code = harness_resp.choices[0].message.content.strip()
-                            else:
-                                runnable_code = call_ai(harness_prompt, user_gemini_key)
-
-                            runnable_code = re.sub(r"^```(?:python|javascript|js)?\n?", "", runnable_code.strip(), flags=re.MULTILINE|re.IGNORECASE)
-                            runnable_code = re.sub(r"\n?```$", "", runnable_code.strip(), flags=re.MULTILINE)
-
-                            result = execute_code(runnable_code, language=st.session_state.language)
-                            st.session_state.execution_output = result
-                            st.rerun()
-                        except Exception as e:
-                            st.session_state.execution_output = {"stdout": "", "stderr": str(e), "success": False}
-                            st.rerun()
-
-                if st.session_state.execution_output:
-                    out = st.session_state.execution_output
-                    if out["success"] and out["stdout"].strip():
-                        st.success("✅ Passed local sanity check")
-                        st.code(out["stdout"], language="text")
-                        st.warning("**Still failed on LeetCode?** Paste the LeetCode error below — it will be automatically sent to the fix loop.")
-                        lc_error = st.text_area("LeetCode error output:", height=100, key="lc_error_after_success", label_visibility="collapsed")
-                        if st.button("🔧 Fix with LeetCode Error", key="fix_from_lc", use_container_width=True):
-                            if lc_error.strip():
-                                st.session_state.attempt_errors.append(lc_error.strip())
-                                st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
-                                _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
-                            else:
-                                st.warning("Paste the LeetCode error first.")
-                    elif out["stderr"].strip():
-                        with st.container(border=True):
-                            st.error("❌ Execution failed (local environment).")
-                            st.code(out["stderr"], language="text")
-                            if st.button("🔧 Send Error to Fix Loop", key="auto_send_error"):
-                                st.session_state.attempt_errors.append(out["stderr"].strip())
-                                st.session_state.attempt_errors = st.session_state.attempt_errors[-3:]
-                                _trigger_fix_loop(problem_text, st.session_state.attempt_errors, user_gemini_key)
-                    else:
-                        st.warning("Code ran but produced no output.")
 
         # Manual Fix Expander
         with st.expander("🐛 Paste a LeetCode error to fix the solution"):

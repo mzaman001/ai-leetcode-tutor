@@ -298,22 +298,6 @@ If a famous community trick exists for this problem, mention it with credit (e.g
 </user_problem>"""
 
 
-def build_harness_prompt(problem_text: str, raw_code: str, language: str) -> str:
-    """Builds the prompt to generate a runnable test script."""
-    # We enforce generating Python/JS test scripts. If they picked Java/C++, we just do our best to map to python/js,
-    # but the UI won't actually call this for Java/C++ because the Run Code button will be disabled.
-    target_lang = language.lower() if language.lower() in ['python', 'javascript'] else 'python'
-    return (
-        f"You are a {target_lang} expert. Create a complete standalone runnable {target_lang} test script.\n\n"
-        f"REQUIREMENTS:\n"
-        f"1. Include ALL necessary imports\n"
-        f"2. Include the provided solution class/function EXACTLY as written — no changes\n"
-        f"3. After the class/function, add 2–3 test cases using examples from the problem\n"
-        f"4. Print the output of each test case clearly\n"
-        f"5. Output ONLY the raw code — no markdown, no explanations, no triple backticks\n\n"
-        f"Problem:\n<user_problem>\n{_sanitize_input(problem_text)[:600]}\n</user_problem>\n\n"
-        f"Solution code:\n{raw_code}"
-    )
 
 
 def build_fix_prompt(problem_text: str, code_to_fix: str, error_history: str, language: str, lessons_context: str) -> str:
