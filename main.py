@@ -199,6 +199,14 @@ def _sync_language():
     st.session_state.execution_output = None
     st.session_state.user_code = ""
 
+def _sync_user_code():
+    st.session_state.current_solution = None
+    st.session_state.current_hints = None
+    st.session_state.raw_code = ""
+    st.session_state.attempt_errors = []
+    st.session_state.lesson_saved = False
+    st.session_state.execution_output = None
+
 def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
     code_to_fix = st.session_state.raw_code or "(code unavailable)"
@@ -337,6 +345,7 @@ st.text_area(
     height=150,
     max_chars=5000,
     key="user_code",
+    on_change=_sync_user_code,
     placeholder="Paste your current attempt here if you want a code review instead of generic hints...",
     label_visibility="visible"
 )
