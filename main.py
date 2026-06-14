@@ -185,12 +185,6 @@ def _sync_language():
     st.session_state.lesson_saved = False
     st.session_state.execution_output = None
 
-TOC_MD = """**Quick Navigation:**
-[Problem](#1-what-we-re-solving) · [Key Idea](#2-the-key-idea) · [Approach](#3-the-approach) · [Code](#4-the-code) · [How It Works](#5-how-it-works) · [Complexity](#6-complexity) · [Takeaway](#7-the-takeaway)
-
----
-"""
-
 def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
     code_to_fix = st.session_state.raw_code or "(code unavailable)"
@@ -210,10 +204,12 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
             t0 = time.time()
             new_text = call_ai(fix_prompt, user_key)
             t1 = time.time()
-            # Extract the main solution code robustly
-            code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
-            if code_section_match:
-                st.session_state.raw_code = code_section_match.group(1).strip()
+            
+            # Extract the main solution code robustly via XML tags
+            code_match = re.search(r"<code>(.*?)</code>", new_text, re.DOTALL | re.IGNORECASE)
+            if code_match:
+                matches = re.findall(r"```(?:\w+)?\n(.*?)```", code_match.group(1), re.DOTALL | re.IGNORECASE)
+                st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
             else:
                 matches = re.findall(r"```(?:\w+)?\n(.*?)```", new_text, re.DOTALL | re.IGNORECASE)
                 st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
@@ -229,9 +225,13 @@ def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
                 if diff:
                     diff_text = "\n".join(diff)
                     diff_markdown = f"### 🔍 Code Diff (What Changed)\n```diff\n{diff_text}\n```\n\n---\n\n"
-                    new_text = diff_markdown + new_text
+                    # Inject diff into problem_statement tag so it renders in the Overview tab
+                    if "<problem_statement>" in new_text:
+                        new_text = re.sub(r"(<problem_statement>)", r"\1\n" + diff_markdown, new_text, flags=re.IGNORECASE)
+                    else:
+                        new_text = diff_markdown + new_text
 
-            new_text = TOC_MD + new_text + f"\n\n---\n*⏱️ Fix generated in {t1-t0:.1f}s*"
+            new_text = new_text + f"\n\n---\n*⏱️ Fix generated in {t1-t0:.1f}s*"
             st.session_state.current_solution = new_text
             st.session_state.show_update_alert = True
             st.session_state.execution_output = None
@@ -410,15 +410,16 @@ elif solve_button and problem_text:
             result = call_ai(solve_prompt, user_gemini_key)
             t1 = time.time()
 
-        result = TOC_MD + result + f"\n\n---\n*⏱️ Lesson generated in {t1-t0:.1f}s*"
+        result = result + f"\n\n---\n*⏱️ Lesson generated in {t1-t0:.1f}s*"
         _increment_session_calls()
         st.session_state.current_solution = result
         st.session_state.current_hints = None
         
         # Extract the main solution code robustly
-        code_section_match = re.search(r"4\. The Code.*?```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
-        if code_section_match:
-            st.session_state.raw_code = code_section_match.group(1).strip()
+        code_match = re.search(r"<code>(.*?)</code>", result, re.DOTALL | re.IGNORECASE)
+        if code_match:
+            matches = re.findall(r"```(?:\w+)?\n(.*?)```", code_match.group(1), re.DOTALL | re.IGNORECASE)
+            st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
         else:
             matches = re.findall(r"```(?:\w+)?\n(.*?)```", result, re.DOTALL | re.IGNORECASE)
             st.session_state.raw_code = max(matches, key=len).strip() if matches else ""
