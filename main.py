@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from logger import log
 from database import init_db, save_lesson_to_db, remove_lesson_from_db, get_lessons_context
 from ai_client import (
-    call_ai, check_guardrail, call_ai_with_guardrail, build_solve_prompt, 
+    call_ai, build_solve_prompt, 
     build_fix_prompt, _sanitize_input,
     build_pedagogical_hint_prompt,
     GROQ_FAST_MODEL, get_clients
@@ -377,13 +377,8 @@ if hint_button and problem_text:
     try:
         with st.spinner("Analyzing problem and generating hints..."):
             t0 = time.time()
-            is_valid, result = call_ai_with_guardrail(hint_prompt, problem_text, user_gemini_key)
+            result = call_ai(hint_prompt, user_gemini_key)
             t1 = time.time()
-            if not is_valid:
-                st.session_state.current_solution = None
-                st.session_state.current_hints = None
-                st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
-                st.stop()
                 
         result += f"\n\n---\n*⏱️ Hints generated in {t1-t0:.1f}s*"
         _increment_session_calls()
@@ -412,14 +407,8 @@ elif solve_button and problem_text:
     try:
         with st.spinner(f"Generating {st.session_state.language} lesson..."):
             t0 = time.time()
-            is_valid, result = call_ai_with_guardrail(solve_prompt, problem_text, user_gemini_key)
+            result = call_ai(solve_prompt, user_gemini_key)
             t1 = time.time()
-            if not is_valid:
-                st.session_state.current_solution = None
-                st.session_state.current_hints = None
-                st.session_state.raw_code = ""
-                st.warning("That doesn't look like a coding problem. Please paste a valid programming question.")
-                st.stop()
 
         result = TOC_MD + result + f"\n\n---\n*⏱️ Lesson generated in {t1-t0:.1f}s*"
         _increment_session_calls()

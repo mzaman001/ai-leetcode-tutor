@@ -139,34 +139,6 @@ def call_ai(prompt: str, user_key: str = None) -> str:
     )
 
 
-def check_guardrail(text: str, user_key: str = None) -> bool:
-    """Checks if the input is actually a coding-related problem."""
-    log.info("Guardrail: Checking input validity")
-    _default_gemini, _groq_client = get_clients()
-    if len(text.strip()) < 10:
-        return False
-    prompt = (
-        "You are a strict binary classifier. Reply with ONLY the word 'YES' or 'NO' — nothing else.\n\n"
-        "Is the following input a coding problem, algorithm question, programming assignment, "
-        "code snippet, or technical debugging task?\n\n"
-        "Answer NO for: general chat, recipes, essays, math riddles, or anything unrelated to software/programming.\n\n"
-        f"Input: {text[:600]}"
-    )
-    try:
-        if _groq_client:
-            r = _groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model=BOUNCER_MODEL,
-                temperature=0.0,
-                max_tokens=5,
-            )
-            return "YES" in r.choices[0].message.content.upper()
-        else:
-            return "YES" in call_ai(prompt, user_key).upper()
-    except Exception as e:
-        st.sidebar.warning(f"Guardrail check failed: {e}")
-        return False
-
 def _sanitize_input(text: str) -> str:
     """Removes dangerous tags and injection attempts from user input."""
     # Prevent breaking out of the XML tag boundary
@@ -174,16 +146,6 @@ def _sanitize_input(text: str) -> str:
     # Neutralize common prompt injection phrases
     text = re.sub(r'(?i)(ignore previous instructions|system prompt|disregard instructions|you are now)', '[REDACTED]', text)
     return text
-
-def call_ai_with_guardrail(prompt: str, problem_text: str, user_key: str = None) -> tuple[bool, str]:
-    """Runs guardrail first (sequential), then AI only if valid. Saves tokens on invalid inputs."""
-    is_valid = check_guardrail(problem_text, user_key)
-    if not is_valid:
-        return False, None
-    result = call_ai(prompt, user_key)
-    return True, result
-
-
 def build_pedagogical_hint_prompt(problem_text: str, language: str) -> str:
     """Builds a deep-teaching hint prompt that outputs 3 XML-like sections for tabbed UI parsing."""
     return f"""You are an elite, infinitely patient Computer Science tutor helping a student solve a LeetCode problem in {language}. The student is stuck and needs SERIOUS hand-holding. They do NOT just want a quick 4-bullet summary. They want to deeply understand the problem, see a manual walkthrough, and get heavy scaffolding.
