@@ -479,7 +479,31 @@ if st.session_state.current_solution:
             st.session_state.show_update_alert = False
 
         st.markdown("### Solution Breakdown")
-        st.write(st.session_state.current_solution)
+        sol_text = st.session_state.current_solution
+        
+        prob_match = re.search(r"<problem_statement>(.*?)</problem_statement>", sol_text, re.DOTALL | re.IGNORECASE)
+        key_match = re.search(r"<key_idea>(.*?)</key_idea>", sol_text, re.DOTALL | re.IGNORECASE)
+        app_match = re.search(r"<approach>(.*?)</approach>", sol_text, re.DOTALL | re.IGNORECASE)
+        code_match = re.search(r"<code>(.*?)</code>", sol_text, re.DOTALL | re.IGNORECASE)
+        exp_match = re.search(r"<explanation>(.*?)</explanation>", sol_text, re.DOTALL | re.IGNORECASE)
+        comp_match = re.search(r"<complexity>(.*?)</complexity>", sol_text, re.DOTALL | re.IGNORECASE)
+        take_match = re.search(r"<takeaway>(.*?)</takeaway>", sol_text, re.DOTALL | re.IGNORECASE)
+        
+        if prob_match and key_match and app_match and code_match and exp_match and comp_match and take_match:
+            s_tab1, s_tab2, s_tab3, s_tab4 = st.tabs(["📖 Overview", "🧠 Logic", "💻 Code", "💡 Takeaway"])
+            with s_tab1:
+                st.markdown(prob_match.group(1).strip())
+                st.markdown(key_match.group(1).strip())
+            with s_tab2:
+                st.markdown(app_match.group(1).strip())
+                st.markdown(comp_match.group(1).strip())
+            with s_tab3:
+                st.markdown(code_match.group(1).strip())
+                st.markdown(exp_match.group(1).strip())
+            with s_tab4:
+                st.markdown(take_match.group(1).strip())
+        else:
+            st.write(sol_text)
 
         error_count = len(st.session_state.attempt_errors)
         if error_count > 0:
