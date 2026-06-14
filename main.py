@@ -9,7 +9,7 @@ from logger import log
 from ai_client import (
     call_ai, build_solve_prompt, 
     build_fix_prompt, _sanitize_input,
-    build_pedagogical_hint_prompt,
+    build_pedagogical_hint_prompt, build_code_review_prompt,
     GROQ_FAST_MODEL, get_clients
 )
 
@@ -166,6 +166,7 @@ _defaults = {
     "attempt_errors": [],
     "execution_output": None,
     "language": "Python",
+    "user_code": "",
 }
 for key, default in _defaults.items():
     if key not in st.session_state:
@@ -187,6 +188,7 @@ def _sync_problem():
         st.session_state.attempt_errors = []
         st.session_state.lesson_saved = False
         st.session_state.execution_output = None
+        st.session_state.user_code = ""
 
 def _sync_language():
     st.session_state.current_solution = None
@@ -195,6 +197,7 @@ def _sync_language():
     st.session_state.attempt_errors = []
     st.session_state.lesson_saved = False
     st.session_state.execution_output = None
+    st.session_state.user_code = ""
 
 def _trigger_fix_loop(prob_text: str, errors: list, user_key: str = None):
     error_history = "\n".join(f"Error #{i + 1}:\n{e}" for i, e in enumerate(errors))
@@ -329,6 +332,15 @@ st.text_area(
 
 problem_text = st.session_state.problem_text
 
+st.text_area(
+    "Your Current Code (Optional):",
+    height=150,
+    max_chars=5000,
+    key="user_code",
+    placeholder="Paste your current attempt here if you want a code review instead of generic hints...",
+    label_visibility="visible"
+)
+
 btn_col1, btn_col2 = st.columns([1, 1])
 with btn_col1:
     hint_button = st.button("💡 Get Hints", use_container_width=True, type="secondary")
@@ -384,9 +396,15 @@ if hint_button and problem_text:
         st.stop()
     _show_session_limit_warning()
         
-    hint_prompt = build_pedagogical_hint_prompt(problem_text, st.session_state.language)
+    if st.session_state.user_code and len(st.session_state.user_code.strip()) > 5:
+        hint_prompt = build_code_review_prompt(problem_text, st.session_state.user_code, st.session_state.language)
+        spinner_msg = "Reviewing your code..."
+    else:
+        hint_prompt = build_pedagogical_hint_prompt(problem_text, st.session_state.language)
+        spinner_msg = "Analyzing problem and generating hints..."
+        
     try:
-        with st.spinner("Analyzing problem and generating hints..."):
+        with st.spinner(spinner_msg):
             t0 = time.time()
             result = call_ai(hint_prompt, user_gemini_key)
             t1 = time.time()
@@ -449,14 +467,26 @@ if st.session_state.current_hints and not st.session_state.current_solution:
     with st.chat_message("user", avatar="👤"):
         st.markdown(f"**Problem:** {problem_text[:80]}...")
     with st.chat_message("assistant", avatar="🤖"):
-        st.markdown("### 💡 Hints & Strategy")
         hints_text = st.session_state.current_hints
+        critique_match = re.search(r"<critique>(.*?)</critique>", hints_text, re.DOTALL | re.IGNORECASE)
+        logic_flaw_match = re.search(r"<logic_flaw>(.*?)</logic_flaw>", hints_text, re.DOTALL | re.IGNORECASE)
+        fix_direction_match = re.search(r"<fix_direction>(.*?)</fix_direction>", hints_text, re.DOTALL | re.IGNORECASE)
         
         intuition_match = re.search(r"<intuition>(.*?)</intuition>", hints_text, re.DOTALL | re.IGNORECASE)
         walkthrough_match = re.search(r"<walkthrough>(.*?)</walkthrough>", hints_text, re.DOTALL | re.IGNORECASE)
         pseudocode_match = re.search(r"<pseudocode>(.*?)</pseudocode>", hints_text, re.DOTALL | re.IGNORECASE)
         
-        if intuition_match and walkthrough_match and pseudocode_match:
+        if critique_match and logic_flaw_match and fix_direction_match:
+            st.markdown("### 🧑‍💻 Code Review")
+            tab1, tab2, tab3 = st.tabs(["🔍 Critique", "🧠 Logic Flaw", "🏗️ Fix Direction"])
+            with tab1:
+                st.markdown(critique_match.group(1).strip())
+            with tab2:
+                st.markdown(logic_flaw_match.group(1).strip())
+            with tab3:
+                st.markdown(fix_direction_match.group(1).strip())
+        elif intuition_match and walkthrough_match and pseudocode_match:
+            st.markdown("### 💡 Hints & Strategy")
             tab1, tab2, tab3 = st.tabs(["🧠 Intuition", "🚶 Walkthrough", "🏗️ Pseudo-code"])
             with tab1:
                 st.markdown(intuition_match.group(1).strip())
