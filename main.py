@@ -449,33 +449,24 @@ if st.session_state.current_hints and not st.session_state.current_solution:
     with st.chat_message("user", avatar="👤"):
         st.markdown(f"**Problem:** {problem_text[:80]}...")
     with st.chat_message("assistant", avatar="🤖"):
-        st.markdown("### 💡 Guided Tutoring")
-        
+        st.markdown("### 💡 Hints & Strategy")
         hints_text = st.session_state.current_hints
         
-        # Regex to extract the XML blocks
         intuition_match = re.search(r"<intuition>(.*?)</intuition>", hints_text, re.DOTALL | re.IGNORECASE)
         walkthrough_match = re.search(r"<walkthrough>(.*?)</walkthrough>", hints_text, re.DOTALL | re.IGNORECASE)
         pseudocode_match = re.search(r"<pseudocode>(.*?)</pseudocode>", hints_text, re.DOTALL | re.IGNORECASE)
         
         if intuition_match and walkthrough_match and pseudocode_match:
             tab1, tab2, tab3 = st.tabs(["🧠 Intuition", "🚶 Walkthrough", "🏗️ Pseudo-code"])
-            
             with tab1:
                 st.markdown(intuition_match.group(1).strip())
             with tab2:
                 st.markdown(walkthrough_match.group(1).strip())
             with tab3:
                 st.markdown(pseudocode_match.group(1).strip())
-                
-            # Extract any trailing timing information added in the previous step
-            timing_match = re.search(r"---.*⏱️.*", hints_text, re.DOTALL)
-            if timing_match:
-                st.markdown(timing_match.group(0))
         else:
-            # Fallback if the AI failed to format properly
+            # Fallback if AI failed to format properly
             st.write(hints_text)
-
 
 # ---------- Display Solution + Fix Loop ----------
 if st.session_state.current_solution:

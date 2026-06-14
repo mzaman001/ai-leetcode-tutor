@@ -186,30 +186,41 @@ def call_ai_with_guardrail(prompt: str, problem_text: str, user_key: str = None)
 
 
 def build_pedagogical_hint_prompt(problem_text: str, language: str) -> str:
-    """Builds a deep-teaching, multi-tabbed hint prompt demanding XML structure."""
-    return f"""You are an elite, infinitely patient Computer Science tutor helping a student solve a LeetCode problem in {language}. Your goal is to provide deep, intense "hand-holding" to guide them to the optimal solution. 
+    """Builds a deep-teaching hint prompt that outputs 3 XML-like sections for tabbed UI parsing."""
+    return f"""You are an elite, infinitely patient Computer Science tutor helping a student solve a LeetCode problem in {language}. The student is stuck and needs SERIOUS hand-holding. They do NOT just want a quick 4-bullet summary. They want to deeply understand the problem, see a manual walkthrough, and get heavy scaffolding.
 
 CRITICAL RULES:
 1. NEVER output the final, complete code.
-2. Be highly detailed. Explain things like you are teaching a beginner on a whiteboard. Use analogies.
-3. You MUST structure your entire response EXACTLY using the three XML tags below. Do not output anything outside of these tags.
+2. Provide a MASSIVE, deep, and highly detailed explanation.
+3. You MUST format your entire response exactly inside the three XML tags provided below. Do not output any text outside of these three tags.
 
 <user_problem>
 {_sanitize_input(problem_text)}
 </user_problem>
 
-Generate your response using this exact structure:
+Follow this EXACT structure. Output nothing outside these tags:
 
 <intuition>
-(Write 2-3 paragraphs here. Explain the core trick or 'Aha!' moment required to solve this efficiently. Explain *why* a naive/brute-force approach fails, and introduce the optimal Data Structure or Algorithm in plain English. Use a real-world analogy if possible. Be conversational and encouraging.)
+Provide a deep, plain-English explanation of the core trick or "Aha!" moment.
+- Explain *why* the brute-force approach fails or is too slow.
+- Use a real-world analogy to explain the optimal Data Structure or Algorithm.
+- Tell them the exact Data Structure/Algorithm to use, and the target Time/Space complexity.
+Use Markdown formatting (bolding, lists, etc.) to make it readable.
 </intuition>
 
 <walkthrough>
-(Provide a literal, step-by-step trace of a small example input. Write out exactly how the variables, arrays, or pointers change at each step. Show the internal state as the algorithm progresses. This is the ultimate "hand-holding" section. Make it extremely clear.)
+Perform a manual, step-by-step trace of a small example input.
+Act like a teacher at a whiteboard. Literally write out how the variables, arrays, or pointers change at each step.
+Example format:
+- Step 1: `i = 0`, `current_val = 5`. We see 5 is not in our hash map. We add it...
+- Step 2: `i = 1`...
+Take your time and explain the state changes clearly.
 </walkthrough>
 
 <pseudocode>
-(Provide heavy structural scaffolding. Give them the exact logic flow in plain English or generic pseudo-code. Stop just short of writing the final {language} syntax. Name the target Time and Space complexity they should aim for at the bottom.)
+Provide heavy structural scaffolding to help them write the code.
+Outline the exact logic flow using clear, numbered pseudo-code steps. 
+Stop just short of writing the final {language} syntax. Use clear, imperative language.
 </pseudocode>"""
 
 def build_solve_prompt(problem_text: str, language: str, lessons_context: str) -> str:
