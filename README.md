@@ -30,12 +30,11 @@ Most AI tools just spit out the final code. You copy it, paste it, pass the test
 
 | Feature | Description |
 | :--- | :--- |
-| **💡 Guided Hints** | Get unstuck with precise nudges (DS/Algo names, time complexity goals) instead of the full code. |
-| **🔍 Interactive Solutions** | Full step-by-step lessons with inline analogies. No Googling needed for unfamiliar terms. |
-| **▶️ Local Execution** | Run the generated Python or JavaScript code safely in an AST-sandboxed environment locally. |
-| **🔧 Error Fix Loop** | Paste your failing LeetCode console output; the AI automatically revises its approach. |
-| **🧠 Session Memory** | Persists your progress and proven approaches across your current session. |
-| **🛡️ Rate Limited & Safe** | Built-in guardrails, input sanitization, and session limits to protect API quotas on public deployments. |
+| **💡 Multi-Tab Hints** | Get unstuck with precise nudges (Intuition, Walkthrough, Pseudocode) instead of the full code. |
+| **🔍 Multi-Tab Solutions** | Full step-by-step lessons broken down into Overview, Logic, Code, and Takeaway tabs. |
+| **🔧 Code Diff Fix Loop** | Paste your failing LeetCode console output; the AI automatically fixes the code and shows a red/green diff of exactly what changed. |
+| **🧠 Fast Session Memory** | Instantly save 1-click takeaways to your session memory so the AI avoids repeating past mistakes. |
+| **🛡️ Rate Limited** | Built-in smart rate limiting and API fallback logic to protect public deployments from abuse. |
 
 ---
 
@@ -73,13 +72,13 @@ Open `http://localhost:8501` and paste your first LeetCode problem!
 
 ---
 
-## 🏗️ Architecture & Security
+## 🏗️ Architecture & Speed
 
-Built for scale and security, even on public deployments:
+Built for lightning-fast responses and security, even on public deployments:
 
-- **Guardrail Classifier:** Every input passes through a fast, low-cost Llama model before the main AI call. Non-coding or malicious inputs are rejected instantly, saving API quota.
-- **Prompt Injection Defense:** User inputs are heavily sanitized and isolated inside strict `<user_problem>` XML boundaries.
-- **AST Sandbox Execution:** Python code is scanned via the `ast` module. Dangerous imports (`os`, `subprocess`, `socket`, `sys`) are blocked before execution ever begins.
+- **Strict UI Tab Parsing:** AI responses are strictly forced into XML-like tags, allowing the Streamlit frontend to cleanly parse walls of text into beautiful UI tabs.
+- **Prompt Injection Defense:** User inputs are sanitized and isolated inside strict `<user_problem>` XML boundaries.
+- **Lightning Fast In-Memory State:** Instead of clunky SQLite databases, session memory is handled purely in blazing-fast Streamlit RAM.
 - **Smart Rate Limiting:** Implements both per-minute sliding window limits and per-session hard caps to prevent abuse of shared API keys.
 - **Dual-Model Routing:** Automatically routes to Groq for speed, and gracefully falls back to Gemini if Groq is rate-limited.
 
